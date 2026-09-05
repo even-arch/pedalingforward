@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -9,9 +9,18 @@ import Footer from "@/components/Footer";
 import { SanityLive } from "@/sanity/lib/live";
 import "../globals.css";
 
-const geist = Geist({
-  variable: "--font-geist-sans",
+const archivo = Archivo({
   subsets: ["latin"],
+  axes: ["wdth"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-ibm-mono",
+  display: "swap",
 });
 
 // This route is intentionally dynamic: locale is resolved from the request at runtime.
@@ -50,7 +59,7 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${geist.variable} h-full antialiased`}>
+    <html lang={locale} className={`${archivo.variable} ${ibmPlexMono.variable} h-full`}>
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider messages={messages}>
           <Header />

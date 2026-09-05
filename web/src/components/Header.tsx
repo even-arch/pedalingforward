@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { routing, type Locale } from "@/i18n/routing";
 
@@ -13,86 +13,85 @@ const LOCALE_LABELS: Record<Locale, string> = {
   de: "DE",
 };
 
+const NAV = [
+  { key: "shops",        label: "For Shops" },
+  { key: "suppliers",    label: "For Suppliers" },
+  { key: "distributors", label: "For Distributors" },
+  { key: "how-it-works", label: "How it works" },
+  { key: "about",        label: "About" },
+];
+
 export default function Header() {
-  const t = useTranslations("nav");
-  const locale = useLocale() as Locale;
+  const locale   = useLocale() as Locale;
   const pathname = usePathname();
-  const router = useRouter();
+  const router   = useRouter();
 
   function switchLocale(next: Locale) {
-    // pathname includes the current locale prefix, e.g. /en/about
     const withoutLocale = pathname.replace(new RegExp(`^/${locale}`), "") || "/";
     router.push(`/${next}${withoutLocale}`);
   }
 
   return (
-    <header className="border-b border-stone-200 bg-canvas">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4">
-          {/* Logo */}
-          <Link href={`/${locale}`} className="flex-shrink-0">
-            <Image
-              src="/brand/pf-logo-red.svg"
-              alt="Pedaling Forward"
-              width={200}
-              height={40}
-              priority
-              className="h-10 w-auto"
-            />
-          </Link>
+    <header>
+      <div className="wrap bar">
 
-          {/* Nav links */}
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link
-              href={`/${locale}/join/shops`}
-              className="text-sm font-medium text-ink hover:text-brand transition-colors"
-            >
-              {t("forShops")}
-            </Link>
-            <Link
-              href={`/${locale}/join/suppliers`}
-              className="text-sm font-medium text-ink hover:text-brand transition-colors"
-            >
-              {t("forSuppliers")}
-            </Link>
-            <Link
-              href={`/${locale}/join/distributors`}
-              className="text-sm font-medium text-ink hover:text-brand transition-colors"
-            >
-              {t("forDistributors")}
-            </Link>
-          </nav>
+        {/* Logo */}
+        <Link href={`/${locale}`} className="brand-link flex-shrink-0">
+          <Image
+            src="/brand/pf-logo-red.svg"
+            alt="Pedaling Forward"
+            width={220}
+            height={54}
+            priority
+            style={{ height: "54px", width: "auto" }}
+          />
+        </Link>
 
-          {/* Right side */}
-          <div className="flex items-center gap-3">
-            {/* Language switcher */}
-            <div className="flex items-center gap-1">
-              {routing.locales.map((loc) => (
-                <button
+        {/* Nav */}
+        <nav className="main hidden md:flex" aria-label="Main navigation">
+          {NAV.map(({ key, label }) => {
+            const href   = `/${locale}/${key}`;
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={key}
+                href={href}
+                aria-current={active ? "page" : undefined}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Language switcher + Patisco CTA */}
+        <div className="flex items-center gap-4 ml-auto">
+          <div className="lang hidden sm:flex">
+            {routing.locales.map((loc) => (
+              loc === locale ? (
+                <b key={loc}>{LOCALE_LABELS[loc]}</b>
+              ) : (
+                <span
                   key={loc}
                   onClick={() => switchLocale(loc)}
-                  className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                    loc === locale
-                      ? "bg-brand text-white"
-                      : "text-ink hover:bg-muted"
-                  }`}
+                  style={{ cursor: "pointer", opacity: 1 }}
                 >
                   {LOCALE_LABELS[loc]}
-                </button>
-              ))}
-            </div>
-
-            {/* Patisco CTA */}
-            <a
-              href="https://patisco.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors sm:block"
-            >
-              {t("goToPatisco")}
-            </a>
+                </span>
+              )
+            ))}
           </div>
+
+          <a
+            href="https://patisco.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn hidden sm:inline-flex"
+          >
+            Go to Patisco
+          </a>
         </div>
+
       </div>
     </header>
   );

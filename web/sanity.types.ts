@@ -440,3 +440,114 @@ export type AllSanitySchemaTypes =
   | SanityAssetSourceData
   | SanityImageAsset
   | Geopoint;
+
+// Source: ../web/src/sanity/queries/home.ts
+// Variable: homepageQuery
+// Query: {  "settings": *[_type == "siteSettings"][0]{    heroEyebrow,    heroHeadline,    heroSubtext,    "stats": stats[]{value, label},    joinHeadline,    joinSubtext,    "featuredPost": featuredPost->{      _id,      title,      slug,      publishedAt,      excerpt,      "mainImage": mainImage{asset->, "alt": alt},      "category": category->{title, slug},      "author": author->{name}    },    "featuredBrands": featuredBrands[]->{_id, name}  },  "recentPosts": *[_type == "post"] | order(publishedAt desc)[0...6]{    _id,    title,    slug,    publishedAt,    excerpt,    "mainImage": mainImage{asset->, "alt": alt},    "category": category->{title, slug},    "author": author->{name}  },  "brands": *[_type == "brand"] | order(order asc)[0...12]{    _id,    name  }}
+export type HomepageQueryResult = {
+  settings: {
+    heroEyebrow: string | null;
+    heroHeadline: LocalizedString;
+    heroSubtext: LocalizedText | null;
+    stats: Array<{
+      value: string | null;
+      label: LocalizedString | null;
+    }> | null;
+    joinHeadline: LocalizedString | null;
+    joinSubtext: LocalizedText | null;
+    featuredPost: {
+      _id: string;
+      title: LocalizedString;
+      slug: Slug;
+      publishedAt: string;
+      excerpt: LocalizedText | null;
+      mainImage: {
+        asset: {
+          _id: string;
+          _type: "sanity.imageAsset";
+          _createdAt: string;
+          _updatedAt: string;
+          _rev: string;
+          originalFilename?: string;
+          label?: string;
+          title?: string;
+          description?: string;
+          altText?: string;
+          sha1hash: string;
+          extension: string;
+          mimeType: string;
+          size: number;
+          assetId: string;
+          uploadId?: string;
+          path: string;
+          url: string;
+          metadata?: SanityImageMetadata;
+          source?: SanityAssetSourceData;
+        } | null;
+        alt: LocalizedString | null;
+      } | null;
+      category: {
+        title: LocalizedString;
+        slug: Slug;
+      } | null;
+      author: {
+        name: string;
+      } | null;
+    } | null;
+    featuredBrands: Array<{
+      _id: string;
+      name: string;
+    }> | null;
+  } | null;
+  recentPosts: Array<{
+    _id: string;
+    title: LocalizedString;
+    slug: Slug;
+    publishedAt: string;
+    excerpt: LocalizedText | null;
+    mainImage: {
+      asset: {
+        _id: string;
+        _type: "sanity.imageAsset";
+        _createdAt: string;
+        _updatedAt: string;
+        _rev: string;
+        originalFilename?: string;
+        label?: string;
+        title?: string;
+        description?: string;
+        altText?: string;
+        sha1hash: string;
+        extension: string;
+        mimeType: string;
+        size: number;
+        assetId: string;
+        uploadId?: string;
+        path: string;
+        url: string;
+        metadata?: SanityImageMetadata;
+        source?: SanityAssetSourceData;
+      } | null;
+      alt: LocalizedString | null;
+    } | null;
+    category: {
+      title: LocalizedString;
+      slug: Slug;
+    } | null;
+    author: {
+      name: string;
+    } | null;
+  }>;
+  brands: Array<{
+    _id: string;
+    name: string;
+  }>;
+};
+
+// Query TypeMap
+import "@sanity/client";
+declare module "@sanity/client" {
+  interface SanityQueries {
+    '{\n  "settings": *[_type == "siteSettings"][0]{\n    heroEyebrow,\n    heroHeadline,\n    heroSubtext,\n    "stats": stats[]{value, label},\n    joinHeadline,\n    joinSubtext,\n    "featuredPost": featuredPost->{\n      _id,\n      title,\n      slug,\n      publishedAt,\n      excerpt,\n      "mainImage": mainImage{asset->, "alt": alt},\n      "category": category->{title, slug},\n      "author": author->{name}\n    },\n    "featuredBrands": featuredBrands[]->{_id, name}\n  },\n  "recentPosts": *[_type == "post"] | order(publishedAt desc)[0...6]{\n    _id,\n    title,\n    slug,\n    publishedAt,\n    excerpt,\n    "mainImage": mainImage{asset->, "alt": alt},\n    "category": category->{title, slug},\n    "author": author->{name}\n  },\n  "brands": *[_type == "brand"] | order(order asc)[0...12]{\n    _id,\n    name\n  }\n}': HomepageQueryResult;
+  }
+}
