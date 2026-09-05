@@ -21,8 +21,6 @@ export default async function HomePage({
     .filter((p: { _id: string }) => p._id !== leadPost?._id)
     .slice(0, 5);
 
-  const hasContent = leadPost || gridPosts.length > 0;
-
   return (
     <>
       <HeroSection
@@ -33,19 +31,17 @@ export default async function HomePage({
         stats={settings?.stats}
       />
 
-      {hasContent && (
-        <section style={{ paddingBlock: "88px" }}>
-          <div className="wrap">
-            <div className="feedhead">
-              <h2>Latest</h2>
-            </div>
-            <div className="feed">
-              {leadPost && <LeadArticle post={leadPost} locale={locale} />}
-              <ArticleGrid posts={gridPosts} locale={locale} />
-            </div>
+      <section style={{ paddingBlock: "88px" }}>
+        <div className="wrap">
+          <div className="feedhead">
+            <h2 className="display">Latest</h2>
           </div>
-        </section>
-      )}
+          <div className="feed">
+            {leadPost && <LeadArticle post={leadPost} locale={locale} />}
+            <ArticleGrid posts={gridPosts} locale={locale} />
+          </div>
+        </div>
+      </section>
 
       <JoinStrip
         locale={locale}
