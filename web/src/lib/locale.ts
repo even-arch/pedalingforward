@@ -6,7 +6,7 @@ type LocalizedValue =
 export function loc(value: LocalizedValue, locale: string): string {
   if (!value) return ''
   const keyed = value as Record<string, string | null | undefined>
-  return keyed[locale] ?? keyed['en'] ?? ''
+  return keyed[locale] || keyed['en'] || ''
 }
 
 export function formatDate(iso: string | null | undefined, locale: string): string {
