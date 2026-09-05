@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Env files
+.env
+.env.local
+.env*.local
+
+# Next.js
+web/.next/
+web/out/
+
+# Sanity
+studio/dist/
+
+# Build
+.turbo/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Agent skills (dev tooling, not part of the repo)
+**/.agents/
+**/.claude/skills/
+**/skills-lock.json
