@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "title": "Pedaling Forward",
+    "description": "台灣自行車零件，為全球獨立自行車店而生。"
+  },
+  "nav": {
+    "forShops": "車店專區",
+    "forSuppliers": "供應商專區",
+    "forDistributors": "通路商專區",
+    "goToPatisco": "前往 Patisco"
+  },
+  "footer": {
+    "tagline": "台灣零件。全球車店。",
+    "patiscoLink": "在 Patisco 採購",
+    "writingLink": "投稿",
+    "aboutLink": "關於我們",
+    "contactLink": "聯絡我們",
+    "rights": "© {year} 律寶實業有限公司"
+  }
+}

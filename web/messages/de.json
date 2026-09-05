@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "title": "Pedaling Forward",
+    "description": "Taiwanesische Fahrradkomponenten für unabhängige Fahrradläden weltweit."
+  },
+  "nav": {
+    "forShops": "Für Shops",
+    "forSuppliers": "Für Lieferanten",
+    "forDistributors": "Für Händler",
+    "goToPatisco": "Zu Patisco"
+  },
+  "footer": {
+    "tagline": "Taiwanesische Komponenten. Weltweite Fahrradläden.",
+    "patiscoLink": "Bei Patisco kaufen",
+    "writingLink": "Für uns schreiben",
+    "aboutLink": "Über uns",
+    "contactLink": "Kontakt",
+    "rights": "© {year} Point Asia Co., Ltd."
+  }
+}
