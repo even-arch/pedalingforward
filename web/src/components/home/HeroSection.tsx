@@ -41,9 +41,9 @@ export function HeroSection({ locale, eyebrow, headline, subtext, stats }: Props
           <BrandMark />
         </div>
         <div className="wrap inner">
-          <p className="lab">{eyebrow ?? FALLBACK.eyebrow}</p>
-          <h1 className="display">{loc(headline, locale) ?? FALLBACK.headline}</h1>
-          <p className="lead">{loc(subtext, locale) ?? FALLBACK.subtext}</p>
+          <p className="lab">{eyebrow || FALLBACK.eyebrow}</p>
+          <h1 className="display">{loc(headline, locale) || FALLBACK.headline}</h1>
+          <p className="lead">{loc(subtext, locale) || FALLBACK.subtext}</p>
           <Link href={`/${locale}/articles`} className="cta">
             Browse all articles <span aria-hidden="true">→</span>
           </Link>
