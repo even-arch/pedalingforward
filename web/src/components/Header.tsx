@@ -65,7 +65,7 @@ export default function Header() {
         </nav>
 
         {/* Language switcher + Patisco CTA */}
-        <div className="flex items-center gap-4 ml-auto">
+        <div className="flex items-center gap-4 ml-auto md:ml-0">
           <div className="lang hidden sm:flex">
             {routing.locales.map((loc) => (
               loc === locale ? (

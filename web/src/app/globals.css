@@ -126,6 +126,53 @@
   .btn.on-red         { background: #fff; color: #D5352A; }
   .btn.on-red:hover   { background: #14120F; color: #fff; }
 
+  /* ── Header ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: #FFFFFF;
+    border-bottom: 2px solid #14120F;
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    min-height: 92px;
+    padding-block: 14px;
+  }
+  nav.main {
+    display: flex;
+    gap: 24px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+  nav.main a {
+    font-family: var(--font-ibm-mono, 'Courier New', monospace);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6E6760;
+    padding: 8px 0;
+    border-bottom: 3px solid transparent;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  nav.main a:hover { color: #14120F; }
+  nav.main a[aria-current="page"] { color: #14120F; border-bottom-color: #D5352A; }
+  .lang {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    font-family: var(--font-ibm-mono, 'Courier New', monospace);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: #6E6760;
+  }
+  .lang b { color: #14120F; font-weight: 600; }
+  .lang span { cursor: pointer; }
+
   /* ── Hero (red bg) ── */
   .hero {
     position: relative;
