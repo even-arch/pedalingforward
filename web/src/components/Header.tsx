@@ -34,10 +34,10 @@ export default function Header() {
             <Image
               src="/brand/pf-logo-red.svg"
               alt="Pedaling Forward"
-              width={160}
-              height={32}
+              width={200}
+              height={40}
               priority
-              className="h-8 w-auto"
+              className="h-10 w-auto"
             />
           </Link>
 

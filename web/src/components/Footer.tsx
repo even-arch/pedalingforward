@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 export default async function Footer() {
-  const t = useTranslations("footer");
-  const locale = await getLocale();
+  const [t, locale] = await Promise.all([
+    getTranslations("footer"),
+    getLocale(),
+  ]);
   const year = new Date().getFullYear();
 
   return (
@@ -71,7 +72,7 @@ export default async function Footer() {
                 alt="Point Asia Co., Ltd."
                 width={80}
                 height={24}
-                className="h-6 w-auto opacity-60"
+                className="h-6 w-auto brightness-0 invert opacity-70"
               />
             </div>
           </div>

@@ -14,6 +14,9 @@ const geist = Geist({
   subsets: ["latin"],
 });
 
+// This route is intentionally dynamic: locale is resolved from the request at runtime.
+export const instant = false;
+
 export async function generateMetadata({
   params,
 }: {

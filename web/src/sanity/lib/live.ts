@@ -6,3 +6,10 @@ export const { sanityFetch, SanityLive } = defineLive({
   serverToken: process.env.SANITY_API_READ_TOKEN,
   browserToken: process.env.SANITY_API_READ_TOKEN,
 });
+
+export async function cachedSanity(
+  options: Parameters<typeof sanityFetch>[0]
+) {
+  "use cache";
+  return sanityFetch(options);
+}

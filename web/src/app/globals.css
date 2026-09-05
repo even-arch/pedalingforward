@@ -5,8 +5,11 @@
   --color-ink: #1D1D1B;
   --color-canvas: #FFFFFF;
   --color-muted: #F5F5F4;
+  --color-stone-50: #FAFAF8;
 
   --font-sans: var(--font-geist-sans);
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-mono: 'Courier New', Courier, monospace;
 }
 
 body {
