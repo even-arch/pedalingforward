@@ -7,23 +7,28 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status") ?? "collected";
+  const status = searchParams.get("status") ?? "analyzed";
 
   if (status === "counts") {
-    const counts = await writeClient.fetch<{ collected: number; raw: number; dismissed: number }>(
-      `{"collected": count(*[_type == "mediaItem" && status == "collected"]), "raw": count(*[_type == "mediaItem" && status == "raw"]), "dismissed": count(*[_type == "mediaItem" && status == "dismissed"])}`,
+    const counts = await writeClient.fetch<{ raw: number; analyzed: number; collected: number; dismissed: number }>(
+      `{
+        "raw": count(*[_type == "mediaItem" && status == "raw"]),
+        "analyzed": count(*[_type == "mediaItem" && status == "analyzed"]),
+        "collected": count(*[_type == "mediaItem" && status == "collected"]),
+        "dismissed": count(*[_type == "mediaItem" && status == "dismissed"])
+      }`,
       {},
       { cache: "no-store" }
     );
     return Response.json({ counts });
   }
 
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100);
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 200);
 
   const items = await writeClient.fetch(
-    `*[_type == "mediaItem" && status == $status] | order(publishedAt desc)[0...$limit]{
+    `*[_type == "mediaItem" && status == $status] | order(relevanceScore desc, publishedAt desc)[0...$limit]{
       _id, title, url, sourceName, sourceLanguage, description,
-      summary, keyPoints, fullTextFetched,
+      summary, keyPoints, tags, fullTextFetched,
       publishedAt, fetchedAt, status, relevanceScore, relevanceReason,
       "hasPost": defined(generatedPost)
     }`,
@@ -46,7 +51,7 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "id and status required" }, { status: 400 });
   }
 
-  const valid = ["raw", "collected", "dismissed", "filtered_out"];
+  const valid = ["raw", "analyzed", "collected", "dismissed"];
   if (!valid.includes(status)) {
     return Response.json({ error: "Invalid status" }, { status: 400 });
   }

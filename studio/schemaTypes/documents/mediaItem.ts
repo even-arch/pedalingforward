@@ -68,15 +68,35 @@ export const mediaItem = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'tags',
+      title: '標籤',
+      type: 'array',
+      of: [defineArrayMember({type: 'string'})],
+      description: 'AI 自動分類，可手動調整',
+      options: {
+        list: [
+          {title: '供應鏈', value: 'supply-chain'},
+          {title: '新品發布', value: 'product-launch'},
+          {title: '市場動態', value: 'market-news'},
+          {title: '法規政策', value: 'regulation'},
+          {title: '展覽', value: 'trade-show'},
+          {title: '零售通路', value: 'retail'},
+          {title: '技術規格', value: 'tech'},
+          {title: '電動車', value: 'e-bike'},
+        ],
+        layout: 'tags',
+      },
+    }),
+    defineField({
       name: 'status',
       title: 'Status',
       type: 'string',
       options: {
         list: [
-          {title: '待分析 Raw', value: 'raw'},
-          {title: '✅ 收錄 Collected', value: 'collected'},
-          {title: '❌ 排除 Dismissed', value: 'dismissed'},
-          {title: '🚫 過濾掉 Filtered Out', value: 'filtered_out'},
+          {title: '⏳ 待分析', value: 'raw'},
+          {title: '🔍 已分析', value: 'analyzed'},
+          {title: '✅ 已收錄', value: 'collected'},
+          {title: '❌ 已排除', value: 'dismissed'},
         ],
       },
       initialValue: 'raw',
@@ -110,7 +130,7 @@ export const mediaItem = defineType({
       enriched: 'fullTextFetched',
     },
     prepare({title, status, score, source, enriched}) {
-      const statusIcon = status === 'collected' ? '✅' : status === 'dismissed' ? '❌' : status === 'filtered_out' ? '🚫' : '⏳'
+      const statusIcon = status === 'collected' ? '✅' : status === 'analyzed' ? '🔍' : status === 'dismissed' ? '❌' : '⏳'
       const enrichIcon = enriched ? '📄' : ''
       return {
         title: `${statusIcon}${enrichIcon} ${title ?? '(untitled)'}`,
