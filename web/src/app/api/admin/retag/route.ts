@@ -14,6 +14,7 @@ Assign 1-3 tags from this list only (use the exact values):
 - retail: bike shops, distributors, dealers, retail chains
 - tech: technology specs, materials, engineering, testing
 - e-bike: electric bikes, motors, batteries
+- urban: city cycling infrastructure, bike lanes, cycling promotion, local government cycling policies
 
 Return a JSON array matching the input order:
 [{"tags": ["supply-chain", "market-news"]}, ...]`;

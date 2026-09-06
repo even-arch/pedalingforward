@@ -68,6 +68,12 @@ export const mediaItem = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'sourceRegion',
+      title: '新聞地區',
+      type: 'string',
+      description: '自動從來源帶入，例如 DE、US、UK、EU、TW',
+    }),
+    defineField({
       name: 'tags',
       title: '標籤',
       type: 'array',
@@ -83,6 +89,7 @@ export const mediaItem = defineType({
           {title: '零售通路', value: 'retail'},
           {title: '技術規格', value: 'tech'},
           {title: '電動車', value: 'e-bike'},
+          {title: '城市騎行', value: 'urban'},
         ],
         layout: 'tags',
       },

@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
 
   // Fetch all enabled sources
   const sources = await writeClient.fetch<
-    { _id: string; name: string; url: string; language: string; category: string }[]
-  >(`*[_type == "mediaSource" && enabled == true]{_id, name, url, language, category}`);
+    { _id: string; name: string; url: string; language: string; category: string; region?: string }[]
+  >(`*[_type == "mediaSource" && enabled == true]{_id, name, url, language, category, region}`);
 
   if (!sources.length) {
     return Response.json({ ok: true, message: "No enabled sources" });
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
           url,
           sourceName: source.name,
           sourceLanguage: source.language,
+          sourceRegion: source.region ?? "",
           description: item.contentSnippet ?? item.summary ?? "",
           publishedAt: item.isoDate ?? now,
           fetchedAt: now,

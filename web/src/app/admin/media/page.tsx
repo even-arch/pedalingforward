@@ -9,6 +9,7 @@ type MediaItem = {
   url: string;
   sourceName?: string;
   sourceLanguage?: string;
+  sourceRegion?: string;
   description?: string;
   summary?: string;
   keyPoints?: string[];
@@ -144,6 +145,7 @@ export default function MediaPage() {
   const [editorialNote, setEditorialNote] = useState("");
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -156,6 +158,7 @@ export default function MediaPage() {
     setLoading(true);
     setSelected(new Set());
     setActiveTag(null);
+    setActiveRegion(null);
     try {
       const res = await fetch(`/api/admin/media?status=${tab}`, { headers: { Authorization: `Bearer ${token}` } });
       setItems((await res.json()).items ?? []);
@@ -270,12 +273,13 @@ export default function MediaPage() {
     }
   }
 
-  // Collect all unique tags from current items
   const allTags = Array.from(new Set(items.flatMap((it) => it.tags ?? []))).sort();
+  const allRegions = Array.from(new Set(items.map((it) => it.sourceRegion).filter(Boolean) as string[])).sort();
 
   const filtered = items.filter((it) => {
     if (search && !it.title.toLowerCase().includes(search.toLowerCase()) && !it.sourceName?.toLowerCase().includes(search.toLowerCase())) return false;
     if (activeTag && !(it.tags ?? []).includes(activeTag)) return false;
+    if (activeRegion && it.sourceRegion !== activeRegion) return false;
     return true;
   });
 
@@ -340,12 +344,26 @@ export default function MediaPage() {
           style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
         {allTags.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#5a5650" }}>標籤：</span>
-            {activeTag && (
-              <TagChip tag="全部" active={false} onClick={() => setActiveTag(null)} />
-            )}
+            <span style={{ fontSize: 11, color: "#5a5650", flexShrink: 0 }}>類別：</span>
+            {activeTag && <TagChip tag="清除" active={false} onClick={() => setActiveTag(null)} />}
             {allTags.map((tag) => (
               <TagChip key={tag} tag={tag} active={activeTag === tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} />
+            ))}
+          </div>
+        )}
+        {allRegions.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#5a5650", flexShrink: 0 }}>地區：</span>
+            {activeRegion && (
+              <span onClick={() => setActiveRegion(null)} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 11, cursor: "pointer", background: "#2a2824", color: "#a09890", border: "1px solid #3a3530" }}>
+                清除
+              </span>
+            )}
+            {allRegions.map((r) => (
+              <span key={r} onClick={() => setActiveRegion(activeRegion === r ? null : r)}
+                style={{ display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 11, cursor: "pointer", background: activeRegion === r ? "#1a3a5a" : "#2a2824", color: activeRegion === r ? "#7ab8f0" : "#a09890", border: `1px solid ${activeRegion === r ? "#2a5a8a" : "#3a3530"}`, userSelect: "none" }}>
+                {r}
+              </span>
             ))}
           </div>
         )}
@@ -426,6 +444,12 @@ export default function MediaPage() {
 
                 <div style={{ display: "flex", gap: 8, color: "#8a8278", fontSize: 12, marginBottom: 4, flexWrap: "wrap" }}>
                   <span style={{ color: "#6a6460", fontWeight: 500 }}>{item.sourceName}</span>
+                  {item.sourceRegion && (
+                    <span onClick={(e) => { e.stopPropagation(); setActiveRegion(activeRegion === item.sourceRegion ? null : (item.sourceRegion ?? null)); }}
+                      style={{ padding: "0 5px", borderRadius: 3, background: "#1a2a3a", color: "#6a9abf", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
+                      {item.sourceRegion}
+                    </span>
+                  )}
                   {item.sourceLanguage && <span>· {item.sourceLanguage.toUpperCase()}</span>}
                   <span>· {fmt(item.publishedAt)}</span>
                   {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 全文已抓</span>}
