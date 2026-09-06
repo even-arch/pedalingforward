@@ -220,6 +220,19 @@ export default function MediaPage() {
     }
   }
 
+  async function seedSources() {
+    showToast("匯入預設 RSS 來源中…");
+    try {
+      const res = await fetch("/api/admin/seed-sources", { method: "POST", headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(data.message ?? `✅ 已匯入 ${data.inserted} 個來源`);
+      loadCounts();
+    } catch (err) {
+      showToast(`匯入失敗: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function triggerCron(path: string, label: string, doneLabel: (d: Record<string, number>) => string) {
     showToast(`${label}中…`);
     try {
@@ -269,6 +282,10 @@ export default function MediaPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>情報室</h1>
         <span style={{ flex: 1 }} />
+        <button onClick={seedSources}
+          style={{ padding: "6px 14px", background: "#1a1a2e", border: "1px solid #2a2844", color: "#8a9adf", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          匯入預設來源
+        </button>
         <button onClick={() => triggerCron("/api/cron/fetch-rss", "擷取 RSS", (d) => `擷取完成：新增 ${d.totalNew ?? 0} 筆`)}
           style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           擷取 RSS
