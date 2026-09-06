@@ -261,6 +261,20 @@ export default function MediaPage() {
     }
   }
 
+  async function resetForReanalysis() {
+    showToast("重置中，稍候…");
+    try {
+      const res = await fetch("/api/admin/reset-for-reanalysis", { method: "POST", headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(`✅ 已重置 ${data.reset} 篇回待分析（已收錄 ${data.collected}、已排除 ${data.dismissed}）`);
+      load();
+      loadCounts();
+    } catch (err) {
+      showToast(`重置失敗: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const allTags = Array.from(new Set(items.flatMap((it) => it.tags ?? []))).sort();
   const allRegions = Array.from(new Set(items.map((it) => it.sourceRegion).filter(Boolean) as string[])).sort();
 
@@ -300,6 +314,10 @@ export default function MediaPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>情報室</h1>
         <span style={{ flex: 1 }} />
+        <button onClick={resetForReanalysis}
+          style={{ padding: "6px 12px", background: "#2a1a1a", border: "1px solid #4a2020", color: "#c08080", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          重置重新分析
+        </button>
         <button onClick={retag}
           style={{ padding: "6px 12px", background: "#1a2a1a", border: "1px solid #2a402a", color: "#a0c0a0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           補打標籤
