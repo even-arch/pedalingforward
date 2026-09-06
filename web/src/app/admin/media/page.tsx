@@ -10,15 +10,18 @@ type MediaItem = {
   sourceName?: string;
   sourceLanguage?: string;
   description?: string;
+  summary?: string;
+  keyPoints?: string[];
   publishedAt?: string;
   status: string;
   relevanceScore?: number;
   relevanceReason?: string;
+  fullTextFetched?: boolean;
   hasPost?: boolean;
 };
 
-type LocaleArticle = { title: string; excerpt: string; body: string };
-type GeneratedArticle = { en: LocaleArticle; zh: LocaleArticle; ja: LocaleArticle; de: LocaleArticle };
+type LocaleContent = { title: string; summary: string; keyPoints: string[] };
+type GeneratedArticle = { en: LocaleContent; zh: LocaleContent; ja: LocaleContent; de: LocaleContent };
 
 const TABS = [
   { key: "collected", label: "✅ 已收錄" },
@@ -26,8 +29,14 @@ const TABS = [
   { key: "dismissed", label: "❌ 已排除" },
 ] as const;
 
+const AUDIENCE_OPTIONS = [
+  { value: "supplier", label: "🏭 供應商（zh only）" },
+  { value: "shop", label: "🏪 車店（en/de/ja）" },
+  { value: "both", label: "🌐 兩者（全語言）" },
+];
+
 const SCORE_COLOR = (s?: number) => {
-  if (!s && s !== 0) return "#8a8278";
+  if (s === undefined || s === null) return "#8a8278";
   if (s >= 7) return "#4caf50";
   if (s >= 5) return "#ff9800";
   return "#f44336";
@@ -38,22 +47,26 @@ function fmt(iso?: string) {
   return new Date(iso).toLocaleDateString("zh-TW", { month: "short", day: "numeric" });
 }
 
-function ArticlePreview({ article, onSave, onClose, saving }: {
+function ArticlePreview({ article, primaryUrl, sourceName, onSave, onClose, saving }: {
   article: GeneratedArticle;
-  onSave: (note?: string) => void;
+  primaryUrl?: string;
+  sourceName?: string;
+  onSave: (audience: string) => void;
   onClose: () => void;
   saving: boolean;
 }) {
-  const [locale, setLocale] = useState<"en" | "zh" | "ja" | "de">("en");
+  const [locale, setLocale] = useState<"en" | "zh" | "ja" | "de">("zh");
+  const [audience, setAudience] = useState("supplier");
   const current = article[locale];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#1a1916", border: "1px solid #2a2824", borderRadius: 8, width: "min(90vw, 720px)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#1a1916", border: "1px solid #2a2824", borderRadius: 8, width: "min(92vw, 680px)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #2a2824", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontWeight: 700, color: "#e8e4df", flex: 1 }}>預覽文章</span>
-          {(["en", "zh", "ja", "de"] as const).map((l) => (
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid #2a2824", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, color: "#e8e4df", fontSize: 15 }}>預覽摘要</span>
+          <span style={{ flex: 1 }} />
+          {(["zh", "en", "ja", "de"] as const).map((l) => (
             <button key={l} onClick={() => setLocale(l)}
               style={{ padding: "4px 10px", background: locale === l ? "#D5352A" : "#2a2824", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
               {l.toUpperCase()}
@@ -63,17 +76,34 @@ function ArticlePreview({ article, onSave, onClose, saving }: {
         </div>
 
         {/* Content */}
-        <div style={{ padding: "24px", overflow: "auto", flex: 1 }}>
-          <h2 style={{ margin: "0 0 8px", fontSize: 22, color: "#fff", lineHeight: 1.3 }}>{current.title}</h2>
-          <p style={{ margin: "0 0 20px", color: "#a09890", fontSize: 14, fontStyle: "italic" }}>{current.excerpt}</p>
-          <div style={{ color: "#c8c4c0", fontSize: 15, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{current.body}</div>
+        <div style={{ padding: "22px", overflow: "auto", flex: 1 }}>
+          <h2 style={{ margin: "0 0 12px", fontSize: 20, color: "#fff", lineHeight: 1.3 }}>{current.title}</h2>
+          <p style={{ margin: "0 0 16px", color: "#c8c4c0", fontSize: 14, lineHeight: 1.7 }}>{current.summary}</p>
+          <ul style={{ margin: "0 0 16px", paddingLeft: 20 }}>
+            {(current.keyPoints ?? []).map((pt, i) => (
+              <li key={i} style={{ color: "#a09890", fontSize: 13, lineHeight: 1.7, marginBottom: 4 }}>{pt}</li>
+            ))}
+          </ul>
+          {primaryUrl && (
+            <div style={{ fontSize: 12, color: "#5a5650" }}>
+              來源：<a href={primaryUrl} target="_blank" rel="noopener" style={{ color: "#8a8278" }}>{sourceName || primaryUrl}</a>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid #2a2824", display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button onClick={onClose} style={{ padding: "8px 20px", background: "#2a2824", color: "#e8e4df", border: "none", borderRadius: 4, cursor: "pointer" }}>取消</button>
-          <button onClick={() => onSave()} disabled={saving}
-            style={{ padding: "8px 20px", background: saving ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
+        <div style={{ padding: "14px 22px", borderTop: "1px solid #2a2824", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#8a8278" }}>受眾：</span>
+            <select value={audience} onChange={(e) => setAudience(e.target.value)}
+              style={{ padding: "4px 8px", background: "#0f0e0c", border: "1px solid #2a2824", color: "#e8e4df", borderRadius: 4, fontSize: 12 }}>
+              {AUDIENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ padding: "7px 18px", background: "#2a2824", color: "#e8e4df", border: "none", borderRadius: 4, cursor: "pointer" }}>取消</button>
+          <button onClick={() => onSave(audience)} disabled={saving}
+            style={{ padding: "7px 18px", background: saving ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}>
             {saving ? "儲存中…" : "儲存草稿"}
           </button>
         </div>
@@ -90,7 +120,7 @@ export default function MediaPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
-  const [sourceItemIds, setSourceItemIds] = useState<string[]>([]);
+  const [genMeta, setGenMeta] = useState<{sourceItemIds: string[]; primaryUrl?: string; sourceName?: string}>({ sourceItemIds: [] });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [editorialNote, setEditorialNote] = useState("");
@@ -113,7 +143,7 @@ export default function MediaPage() {
 
   function showToast(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 4000);
   }
 
   async function updateStatus(id: string, status: string) {
@@ -139,7 +169,8 @@ export default function MediaPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
       setGeneratedArticle(data.article);
-      setSourceItemIds(data.sourceItemIds);
+      const firstItem = items.find((it) => ids.includes(it._id));
+      setGenMeta({ sourceItemIds: data.sourceItemIds, primaryUrl: data.primaryUrl, sourceName: firstItem?.sourceName });
     } catch (err) {
       showToast(`錯誤: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -147,18 +178,24 @@ export default function MediaPage() {
     }
   }
 
-  async function savePost() {
+  async function savePost(audience: string) {
     if (!generatedArticle) return;
     setSaving(true);
     try {
       const res = await fetch("/api/admin/save-post", {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ article: generatedArticle, sourceItemIds }),
+        body: JSON.stringify({
+          article: generatedArticle,
+          sourceItemIds: genMeta.sourceItemIds,
+          primaryUrl: genMeta.primaryUrl,
+          sourceName: genMeta.sourceName,
+          audience,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      showToast(`✅ 已儲存草稿：${data.slug}`);
+      showToast(`✅ 已儲存：${data.slug}`);
       setGeneratedArticle(null);
       setSelected(new Set());
       setEditorialNote("");
@@ -170,20 +207,16 @@ export default function MediaPage() {
     }
   }
 
-  async function triggerFetch() {
-    showToast("正在擷取 RSS…");
-    const res = await fetch("/api/cron/fetch-rss", { headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` } });
-    const data = await res.json();
-    showToast(`擷取完成：新增 ${data.totalNew ?? 0} 筆`);
-    if (tab === "raw") load();
-  }
-
-  async function triggerFilter() {
-    showToast("AI 分析中…");
-    const res = await fetch("/api/cron/filter-media", { headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` } });
-    const data = await res.json();
-    showToast(`分析完成：處理 ${data.processed ?? 0} 筆`);
-    load();
+  async function triggerCron(path: string, label: string, doneLabel: (d: Record<string, number>) => string) {
+    showToast(`${label}中…`);
+    try {
+      const res = await fetch(path, { headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` } });
+      const data = await res.json();
+      showToast(doneLabel(data));
+      load();
+    } catch {
+      showToast(`${label} 失敗`);
+    }
   }
 
   const allSelected = items.length > 0 && selected.size === items.length;
@@ -191,74 +224,60 @@ export default function MediaPage() {
 
   return (
     <div>
-      {/* Toast */}
       {toast && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#1e1c19", border: "1px solid #2a2824", borderRadius: 6, padding: "12px 20px", color: "#e8e4df", zIndex: 200, fontSize: 14 }}>
+        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#1e1c19", border: "1px solid #2a2824", borderRadius: 6, padding: "12px 20px", color: "#e8e4df", zIndex: 200, fontSize: 14, maxWidth: 320 }}>
           {toast}
         </div>
       )}
 
-      {/* Article preview modal */}
       {generatedArticle && (
         <ArticlePreview
           article={generatedArticle}
+          primaryUrl={genMeta.primaryUrl}
+          sourceName={genMeta.sourceName}
           onSave={savePost}
           onClose={() => setGeneratedArticle(null)}
           saving={saving}
         />
       )}
 
-      {/* Page header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>情報室</h1>
         <span style={{ flex: 1 }} />
-        <button onClick={triggerFetch} style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 13 }}>
+        <button onClick={() => triggerCron("/api/cron/fetch-rss", "擷取 RSS", (d) => `擷取完成：新增 ${d.totalNew ?? 0} 筆`)}
+          style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           擷取 RSS
         </button>
-        <button onClick={triggerFilter} style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 13 }}>
+        <button onClick={() => triggerCron("/api/cron/filter-media", "AI 分析", (d) => `分析完成：${d.processed ?? 0} 筆`)}
+          style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           AI 分析
+        </button>
+        <button onClick={() => triggerCron("/api/cron/enrich-media", "AI 摘要", (d) => `摘要完成：${d.enriched ?? 0} 筆`)}
+          style={{ padding: "6px 14px", background: "#1a2a1a", border: "1px solid #2a402a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          AI 摘要
         </button>
       </div>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #2a2824" }}>
         {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            style={{
-              padding: "8px 16px",
-              background: "none",
-              border: "none",
-              borderBottom: tab === key ? "2px solid #D5352A" : "2px solid transparent",
-              color: tab === key ? "#fff" : "#8a8278",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: tab === key ? 600 : 400,
-              marginBottom: -1,
-            }}
-          >
+          <button key={key} onClick={() => setTab(key)}
+            style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: tab === key ? "2px solid #D5352A" : "2px solid transparent", color: tab === key ? "#fff" : "#8a8278", cursor: "pointer", fontSize: 13, fontWeight: tab === key ? 600 : 400, marginBottom: -1 }}>
             {label} {tab === key ? `(${items.length})` : ""}
           </button>
         ))}
       </div>
 
-      {/* Generate bar (shown when items selected in collected tab) */}
+      {/* Generate bar */}
       {tab === "collected" && selected.size > 0 && (
-        <div style={{ marginBottom: 16, padding: "12px 16px", background: "#1a1916", border: "1px solid #2a2824", borderRadius: 6, display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "#a09890" }}>已選 {selected.size} 筆</span>
-          <input
-            placeholder="編輯備注（可選）"
-            value={editorialNote}
-            onChange={(e) => setEditorialNote(e.target.value)}
-            style={{ flex: 1, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }}
-          />
-          <button
-            onClick={generate}
-            disabled={generating}
-            style={{ padding: "8px 18px", background: generating ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}
-          >
-            {generating ? "AI 生成中…" : "✨ 生成文章"}
+        <div style={{ marginBottom: 16, padding: "12px 16px", background: "#1a1916", border: "1px solid #2a2824", borderRadius: 6, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "#a09890", flexShrink: 0 }}>已選 {selected.size} 筆</span>
+          <input placeholder="編輯備注（可選）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
+            style={{ flex: 1, minWidth: 120, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
+          <button onClick={generate} disabled={generating}
+            style={{ padding: "8px 18px", background: generating ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
+            {generating ? "AI 生成中…" : "✨ 生成摘要"}
           </button>
         </div>
       )}
@@ -268,23 +287,18 @@ export default function MediaPage() {
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>載入中…</div>
       ) : items.length === 0 ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
-          {tab === "collected" ? "暫無已收錄文章。先執行「AI 分析」來分類文章。" : "暫無資料"}
+          {tab === "collected" ? "暫無已收錄文章。先執行「AI 分析」來分類。" : "暫無資料"}
         </div>
       ) : (
         <div>
-          {/* Select all */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", color: "#8a8278", fontSize: 12 }}>
             <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(items.map((i) => i._id)))} />
             <span>全選</span>
           </div>
 
           {items.map((item) => (
-            <div key={item._id} style={{
-              display: "flex", alignItems: "flex-start", gap: 12,
-              padding: "14px 12px", borderBottom: "1px solid #1a1916",
-              background: selected.has(item._id) ? "#1a1916" : "transparent",
-              cursor: "pointer",
-            }} onClick={() => toggle(item._id)}>
+            <div key={item._id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 12px", borderBottom: "1px solid #1a1916", background: selected.has(item._id) ? "#1a1916" : "transparent", cursor: "pointer" }}
+              onClick={() => toggle(item._id)}>
               <input type="checkbox" checked={selected.has(item._id)} onChange={() => toggle(item._id)} onClick={(e) => e.stopPropagation()} style={{ marginTop: 2, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
@@ -302,18 +316,28 @@ export default function MediaPage() {
                   <span>{item.sourceName}</span>
                   {item.sourceLanguage && <span>· {item.sourceLanguage.toUpperCase()}</span>}
                   <span>· {fmt(item.publishedAt)}</span>
+                  {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 📄 全文</span>}
                   {item.hasPost && <span style={{ color: "#4caf50" }}>· 已有文章</span>}
                 </div>
-                {item.description && (
-                  <div style={{ color: "#8a8278", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                {/* Show enriched summary if available, else RSS snippet */}
+                {item.summary ? (
+                  <div style={{ color: "#a09890", fontSize: 12, lineHeight: 1.6, marginBottom: 4 }}>{item.summary}</div>
+                ) : item.description ? (
+                  <div style={{ color: "#6a6460", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                     {item.description}
                   </div>
-                )}
+                ) : null}
+                {item.keyPoints?.length ? (
+                  <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                    {item.keyPoints.map((pt, i) => (
+                      <li key={i} style={{ color: "#7a7470", fontSize: 11, lineHeight: 1.6 }}>{pt}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 {item.relevanceReason && (
                   <div style={{ color: "#5a5650", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>{item.relevanceReason}</div>
                 )}
               </div>
-              {/* Quick actions */}
               <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                 {item.status !== "collected" && (
                   <button onClick={() => updateStatus(item._id, "collected")}

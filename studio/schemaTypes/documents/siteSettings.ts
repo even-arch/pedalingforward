@@ -4,8 +4,6 @@ export const siteSettings = defineType({
   name: 'siteSettings',
   title: 'Site Settings',
   type: 'document',
-  // Singleton — studio structure in sanity.config.ts locks it to a fixed
-  // documentId and the templates filter hides "Create new".
   fields: [
     // ── Hero / Masthead ──────────────────────────────────────────
     defineField({
@@ -89,21 +87,42 @@ export const siteSettings = defineType({
       title: 'Admin Password',
       type: 'string',
       group: 'admin',
-      description: 'Password for /admin section. Store a strong random string.',
+      description: 'Password for /admin section.',
     }),
     defineField({
       name: 'anthropicApiKey',
       title: 'Anthropic API Key',
       type: 'string',
       group: 'admin',
-      description: 'Claude API key for AI filtering + article generation. Can also be set via ANTHROPIC_API_KEY env var.',
+      description: 'Claude API key. Also readable from ANTHROPIC_API_KEY env var (takes priority).',
     }),
     defineField({
       name: 'openaiApiKey',
       title: 'OpenAI API Key',
       type: 'string',
       group: 'admin',
-      description: 'OpenAI API key. Can also be set via OPENAI_API_KEY env var.',
+      description: 'OpenAI API key. Also readable from OPENAI_API_KEY env var (takes priority).',
+    }),
+    defineField({
+      name: 'firecrawlApiKey',
+      title: 'Firecrawl API Key',
+      type: 'string',
+      group: 'admin',
+      description: 'For fetching full article text. Also from FIRECRAWL_API_KEY env var.',
+    }),
+    defineField({
+      name: 'telegramBotToken',
+      title: 'Telegram Bot Token',
+      type: 'string',
+      group: 'admin',
+      description: 'Bot token for draft-ready notifications.',
+    }),
+    defineField({
+      name: 'telegramChatId',
+      title: 'Telegram Chat ID',
+      type: 'string',
+      group: 'admin',
+      description: 'Chat or channel ID to receive notifications.',
     }),
     defineField({
       name: 'aiWritingRules',
@@ -111,7 +130,7 @@ export const siteSettings = defineType({
       type: 'text',
       rows: 8,
       group: 'admin',
-      description: 'Style guide injected into AI article generation prompts.',
+      description: 'Style guide injected into AI generation prompts.',
       initialValue: `Writing for Pedaling Forward:
 - Audience: global bicycle shop owners, distributors, and sourcing managers
 - Tone: professional, concise, trade-focused

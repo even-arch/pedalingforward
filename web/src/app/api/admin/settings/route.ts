@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   }
 
   const settings = await writeClient.fetch(
-    `*[_type == "siteSettings" && _id == $id][0]{adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules}`,
+    `*[_type == "siteSettings" && _id == $id][0]{adminPassword, anthropicApiKey, openaiApiKey, firecrawlApiKey, telegramBotToken, telegramChatId, aiWritingRules}`,
     { id: SETTINGS_ID },
     { cache: "no-store" }
   );
@@ -23,12 +23,15 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules } = body as Record<string, string>;
+  const { adminPassword, anthropicApiKey, openaiApiKey, firecrawlApiKey, telegramBotToken, telegramChatId, aiWritingRules } = body as Record<string, string>;
 
   const patch: Record<string, string> = {};
   if (adminPassword !== undefined) patch.adminPassword = adminPassword;
   if (anthropicApiKey !== undefined) patch.anthropicApiKey = anthropicApiKey;
   if (openaiApiKey !== undefined) patch.openaiApiKey = openaiApiKey;
+  if (firecrawlApiKey !== undefined) patch.firecrawlApiKey = firecrawlApiKey;
+  if (telegramBotToken !== undefined) patch.telegramBotToken = telegramBotToken;
+  if (telegramChatId !== undefined) patch.telegramChatId = telegramChatId;
   if (aiWritingRules !== undefined) patch.aiWritingRules = aiWritingRules;
 
   if (!Object.keys(patch).length) {

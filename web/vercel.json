@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/filter-media",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-media",
+      "schedule": "0 8 * * *"
     }
   ]
 }

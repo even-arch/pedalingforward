@@ -7,6 +7,9 @@ type Settings = {
   adminPassword?: string;
   anthropicApiKey?: string;
   openaiApiKey?: string;
+  firecrawlApiKey?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
   aiWritingRules?: string;
 };
 
@@ -49,28 +52,11 @@ export default function SettingsPage() {
     }
   }
 
-  const field = (label: string, key: keyof Settings, type: "text" | "password" | "textarea" = "text") => (
-    <div style={{ marginBottom: 24 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a09890", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-        {label}
-      </label>
-      {type === "textarea" ? (
-        <textarea
-          value={settings[key] ?? ""}
-          onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
-          rows={8}
-          style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none", resize: "vertical", lineHeight: 1.6 }}
-        />
-      ) : (
-        <input
-          type={type}
-          value={settings[key] ?? ""}
-          onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
-          style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }}
-        />
-      )}
-    </div>
-  );
+  const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setSettings((s) => ({ ...s, [key]: e.target.value }));
+
+  const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" };
+  const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#a09890", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" };
 
   if (loading) return <div style={{ color: "#8a8278" }}>載入中…</div>;
 
@@ -85,28 +71,77 @@ export default function SettingsPage() {
       <h1 style={{ margin: "0 0 32px", fontSize: 22, fontWeight: 700, color: "#fff" }}>設定</h1>
 
       <form onSubmit={save}>
-        {field("管理員密碼", "adminPassword", "password")}
-        {field("Anthropic API Key", "anthropicApiKey", "password")}
-        {field("OpenAI API Key", "openaiApiKey", "password")}
-        {field("AI 寫作規則", "aiWritingRules", "textarea")}
+        {/* Access */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>存取控制</div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>管理員密碼</label>
+            <input type="password" value={settings.adminPassword ?? ""} onChange={set("adminPassword")} style={inputStyle} />
+          </div>
+        </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{ padding: "10px 28px", background: saving ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, fontWeight: 600, fontSize: 14, cursor: "pointer" }}
-        >
+        {/* AI Keys */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>AI API Keys</div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Anthropic API Key</label>
+            <input type="password" value={settings.anthropicApiKey ?? ""} onChange={set("anthropicApiKey")} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>OpenAI API Key</label>
+            <input type="password" value={settings.openaiApiKey ?? ""} onChange={set("openaiApiKey")} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Firecrawl API Key</label>
+            <input type="password" value={settings.firecrawlApiKey ?? ""} onChange={set("firecrawlApiKey")} style={inputStyle} />
+            <div style={{ fontSize: 11, color: "#5a5650", marginTop: 4 }}>用來抓取原文全文。沒有也行，會改用 RSS 摘要。</div>
+          </div>
+        </div>
+
+        {/* Telegram */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Telegram 通知</div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Bot Token</label>
+            <input type="password" value={settings.telegramBotToken ?? ""} onChange={set("telegramBotToken")} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Chat ID</label>
+            <input type="text" value={settings.telegramChatId ?? ""} onChange={set("telegramChatId")} style={inputStyle} placeholder="-1001234567890" />
+          </div>
+        </div>
+
+        {/* Writing rules */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>AI 寫作規則</div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>風格指南</label>
+            <textarea value={settings.aiWritingRules ?? ""} onChange={set("aiWritingRules")} rows={8}
+              style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
+          </div>
+        </div>
+
+        <button type="submit" disabled={saving}
+          style={{ padding: "10px 28px", background: saving ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
           {saving ? "儲存中…" : "儲存"}
         </button>
       </form>
 
       <div style={{ marginTop: 48, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
-        <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數說明</div>
-        <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.7 }}>
-          <div>• <code style={{ color: "#a09890" }}>SANITY_WRITE_TOKEN</code> — Sanity Editor token（必填）</div>
-          <div>• <code style={{ color: "#a09890" }}>ADMIN_PASSWORD</code> — 覆蓋此頁管理員密碼（可選）</div>
-          <div>• <code style={{ color: "#a09890" }}>ANTHROPIC_API_KEY</code> — 覆蓋此頁 Anthropic Key（可選）</div>
-          <div>• <code style={{ color: "#a09890" }}>OPENAI_API_KEY</code> — 覆蓋此頁 OpenAI Key（可選）</div>
-          <div>• <code style={{ color: "#a09890" }}>CRON_SECRET</code> — 保護 cron 端點（建議設定）</div>
+        <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數（優先於此頁設定）</div>
+        <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.8 }}>
+          {[
+            ["SANITY_WRITE_TOKEN", "必填"],
+            ["ADMIN_PASSWORD", "可選"],
+            ["ANTHROPIC_API_KEY", "可選"],
+            ["OPENAI_API_KEY", "可選"],
+            ["FIRECRAWL_API_KEY", "可選"],
+            ["TELEGRAM_BOT_TOKEN", "可選"],
+            ["TELEGRAM_CHAT_ID", "可選"],
+            ["CRON_SECRET", "建議設定"],
+          ].map(([name, note]) => (
+            <div key={name}>• <code style={{ color: "#a09890" }}>{name}</code> — {note}</div>
+          ))}
         </div>
       </div>
     </div>

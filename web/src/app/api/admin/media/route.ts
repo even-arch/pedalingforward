@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const items = await writeClient.fetch(
     `*[_type == "mediaItem" && status == $status] | order(publishedAt desc)[0...$limit]{
       _id, title, url, sourceName, sourceLanguage, description,
+      summary, keyPoints, fullTextFetched,
       publishedAt, fetchedAt, status, relevanceScore, relevanceReason,
       "hasPost": defined(generatedPost)
     }`,

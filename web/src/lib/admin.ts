@@ -13,8 +13,8 @@ let cachedApiKey: string | null = null;
 let cachedOpenAIKey: string | null = null;
 
 async function getSettings() {
-  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; openaiApiKey?: string; aiWritingRules?: string}>(
-    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules}`,
+  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; openaiApiKey?: string; firecrawlApiKey?: string; telegramBotToken?: string; telegramChatId?: string; aiWritingRules?: string}>(
+    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, openaiApiKey, firecrawlApiKey, telegramBotToken, telegramChatId, aiWritingRules}`,
     {},
     { cache: "no-store" }
   );

@@ -27,6 +27,39 @@ export const post = defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
+      name: 'postType',
+      title: 'Post Type',
+      type: 'string',
+      options: {
+        list: [
+          {title: '🏭 Industry News', value: 'industry'},
+          {title: '🛍 Product', value: 'product'},
+          {title: '🔬 Test / Review', value: 'test'},
+          {title: '🏪 Shop Floor', value: 'shopfloor'},
+          {title: '📅 Show / Event', value: 'show'},
+          {title: '📖 History', value: 'history'},
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'industry',
+    }),
+    defineField({
+      name: 'audience',
+      title: 'Audience',
+      type: 'string',
+      options: {
+        list: [
+          {title: '🏭 台灣供應商（zh only）', value: 'supplier'},
+          {title: '🏪 海外車店（en/de/ja）', value: 'shop'},
+          {title: '🌐 兩者都有（全語言）', value: 'both'},
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'both',
+      description: 'supplier → zh only · shop → en/de/ja only · both → all locales (only "both" uses hreflang)',
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: 'author',
       title: 'Author',
       type: 'reference',
@@ -37,21 +70,6 @@ export const post = defineType({
       title: 'Category',
       type: 'reference',
       to: [{type: 'category'}],
-    }),
-    defineField({
-      name: 'targetAudience',
-      title: 'Target Audience',
-      type: 'array',
-      of: [defineArrayMember({type: 'string'})],
-      options: {
-        list: [
-          {title: 'Bike Shops', value: 'shops'},
-          {title: 'Suppliers', value: 'suppliers'},
-          {title: 'Distributors', value: 'distributors'},
-        ],
-        layout: 'grid',
-      },
-      description: 'Leave empty to show to all audiences',
     }),
     defineField({
       name: 'mainImage',
@@ -83,6 +101,12 @@ export const post = defineType({
       type: 'localizedBlockContent',
     }),
     defineField({
+      name: 'sourceUrl',
+      title: 'Source URL',
+      type: 'url',
+      description: 'Original article URL (for industry news sourced from RSS)',
+    }),
+    defineField({
       name: 'featured',
       title: 'Featured on Homepage',
       type: 'boolean',
@@ -110,14 +134,17 @@ export const post = defineType({
       author: 'author.name',
       media: 'mainImage',
       publishedAt: 'publishedAt',
+      audience: 'audience',
+      postType: 'postType',
     },
-    prepare({title, author, media, publishedAt}) {
+    prepare({title, author, media, publishedAt, audience, postType}) {
       const date = publishedAt
         ? new Date(publishedAt).toLocaleDateString('en-US', {month: 'short', year: 'numeric'})
         : 'Draft'
+      const audienceIcon = audience === 'supplier' ? '🏭' : audience === 'shop' ? '🏪' : '🌐'
       return {
-        title: title ?? 'Untitled',
-        subtitle: [author, date].filter(Boolean).join(' · '),
+        title: `${audienceIcon} ${title ?? 'Untitled'}`,
+        subtitle: [postType, author, date].filter(Boolean).join(' · '),
         media,
       }
     },
