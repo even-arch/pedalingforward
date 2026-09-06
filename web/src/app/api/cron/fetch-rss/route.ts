@@ -1,17 +1,19 @@
 import { NextRequest } from "next/server";
 import Parser from "rss-parser";
 import { writeClient } from "@/sanity/lib/write-client";
+import { checkAdminAuth } from "@/lib/admin";
 
 const parser = new Parser({ timeout: 10000 });
 
-function verifyCron(req: NextRequest) {
+async function verifyCron(req: NextRequest) {
   if (process.env.NODE_ENV !== "production") return true;
   const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
+  if (auth === `Bearer ${process.env.CRON_SECRET}`) return true;
+  return checkAdminAuth(req as unknown as Request);
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyCron(req)) {
+  if (!(await verifyCron(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

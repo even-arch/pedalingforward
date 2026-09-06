@@ -24,9 +24,9 @@ type LocaleContent = { title: string; summary: string; keyPoints: string[] };
 type GeneratedArticle = { en: LocaleContent; zh: LocaleContent; ja: LocaleContent; de: LocaleContent };
 
 const TABS = [
-  { key: "collected", label: "✅ 已收錄" },
-  { key: "raw", label: "⏳ 待分析" },
-  { key: "dismissed", label: "❌ 已排除" },
+  { key: "collected", label: "已收錄" },
+  { key: "raw", label: "待分析" },
+  { key: "dismissed", label: "已排除" },
 ] as const;
 
 const AUDIENCE_OPTIONS = [
@@ -116,6 +116,7 @@ export default function MediaPage() {
   const { token } = useAuth();
   const [tab, setTab] = useState<string>("collected");
   const [items, setItems] = useState<MediaItem[]>([]);
+  const [counts, setCounts] = useState<{ collected: number; raw: number; dismissed: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
@@ -124,14 +125,23 @@ export default function MediaPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [editorialNote, setEditorialNote] = useState("");
+  const [search, setSearch] = useState("");
 
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const loadCounts = useCallback(async () => {
+    const res = await fetch("/api/admin/media?status=counts", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      setCounts(data.counts);
+    }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setLoading(true);
     setSelected(new Set());
     try {
-      const res = await fetch(`/api/admin/media?status=${tab}`, { headers });
+      const res = await fetch(`/api/admin/media?status=${tab}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setItems(data.items ?? []);
     } finally {
@@ -140,6 +150,7 @@ export default function MediaPage() {
   }, [tab, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadCounts(); }, [loadCounts]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -149,11 +160,12 @@ export default function MediaPage() {
   async function updateStatus(id: string, status: string) {
     await fetch("/api/admin/media", {
       method: "PATCH",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ id, status }),
     });
     setItems((prev) => prev.filter((it) => it._id !== id));
     setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    loadCounts();
   }
 
   async function generate() {
@@ -163,7 +175,7 @@ export default function MediaPage() {
     try {
       const res = await fetch("/api/admin/media/generate", {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ itemIds: ids, editorialNote: editorialNote || undefined }),
       });
       const data = await res.json();
@@ -184,7 +196,7 @@ export default function MediaPage() {
     try {
       const res = await fetch("/api/admin/save-post", {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           article: generatedArticle,
           sourceItemIds: genMeta.sourceItemIds,
@@ -200,6 +212,7 @@ export default function MediaPage() {
       setSelected(new Set());
       setEditorialNote("");
       load();
+      loadCounts();
     } catch (err) {
       showToast(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -210,10 +223,11 @@ export default function MediaPage() {
   async function triggerCron(path: string, label: string, doneLabel: (d: Record<string, number>) => string) {
     showToast(`${label}中…`);
     try {
-      const res = await fetch(path, { headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` } });
+      const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       showToast(doneLabel(data));
       load();
+      loadCounts();
     } catch {
       showToast(`${label} 失敗`);
     }
@@ -221,6 +235,16 @@ export default function MediaPage() {
 
   const allSelected = items.length > 0 && selected.size === items.length;
   const toggle = (id: string) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const filtered = search.trim()
+    ? items.filter((it) => it.title.toLowerCase().includes(search.toLowerCase()) || it.sourceName?.toLowerCase().includes(search.toLowerCase()))
+    : items;
+
+  const tabCount = (key: string) => {
+    if (!counts) return "";
+    const n = counts[key as keyof typeof counts];
+    return n !== undefined ? ` (${n})` : "";
+  };
 
   return (
     <div>
@@ -260,20 +284,30 @@ export default function MediaPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #2a2824" }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid #2a2824" }}>
         {TABS.map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button key={key} onClick={() => { setTab(key); setSearch(""); }}
             style={{ padding: "8px 16px", background: "none", border: "none", borderBottom: tab === key ? "2px solid #D5352A" : "2px solid transparent", color: tab === key ? "#fff" : "#8a8278", cursor: "pointer", fontSize: 13, fontWeight: tab === key ? 600 : 400, marginBottom: -1 }}>
-            {label} {tab === key ? `(${items.length})` : ""}
+            {label}{tabCount(key)}
           </button>
         ))}
+      </div>
+
+      {/* Search bar */}
+      <div style={{ marginBottom: 14 }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜尋標題或來源…"
+          style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }}
+        />
       </div>
 
       {/* Generate bar */}
       {tab === "collected" && selected.size > 0 && (
         <div style={{ marginBottom: 16, padding: "12px 16px", background: "#1a1916", border: "1px solid #2a2824", borderRadius: 6, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: "#a09890", flexShrink: 0 }}>已選 {selected.size} 筆</span>
-          <input placeholder="編輯備注（可選）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
+          <input placeholder="編輯備注（可選，會傳給 AI）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
             style={{ flex: 1, minWidth: 120, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
           <button onClick={generate} disabled={generating}
             style={{ padding: "8px 18px", background: generating ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
@@ -285,18 +319,18 @@ export default function MediaPage() {
       {/* Item list */}
       {loading ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>載入中…</div>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
-          {tab === "collected" ? "暫無已收錄文章。先執行「AI 分析」來分類。" : "暫無資料"}
+          {search ? `找不到「${search}」` : tab === "collected" ? "暫無已收錄文章。先執行「AI 分析」來分類。" : "暫無資料"}
         </div>
       ) : (
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", color: "#8a8278", fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", color: "#8a8278", fontSize: 12, borderBottom: "1px solid #1a1916" }}>
             <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(items.map((i) => i._id)))} />
-            <span>全選</span>
+            <span>全選（{filtered.length} 筆）</span>
           </div>
 
-          {items.map((item) => (
+          {filtered.map((item) => (
             <div key={item._id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 12px", borderBottom: "1px solid #1a1916", background: selected.has(item._id) ? "#1a1916" : "transparent", cursor: "pointer" }}
               onClick={() => toggle(item._id)}>
               <input type="checkbox" checked={selected.has(item._id)} onChange={() => toggle(item._id)} onClick={(e) => e.stopPropagation()} style={{ marginTop: 2, flexShrink: 0 }} />
@@ -316,10 +350,9 @@ export default function MediaPage() {
                   <span>{item.sourceName}</span>
                   {item.sourceLanguage && <span>· {item.sourceLanguage.toUpperCase()}</span>}
                   <span>· {fmt(item.publishedAt)}</span>
-                  {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 📄 全文</span>}
-                  {item.hasPost && <span style={{ color: "#4caf50" }}>· 已有文章</span>}
+                  {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 全文已抓</span>}
+                  {item.hasPost && <span style={{ color: "#4caf50" }}>· 已建草稿</span>}
                 </div>
-                {/* Show enriched summary if available, else RSS snippet */}
                 {item.summary ? (
                   <div style={{ color: "#a09890", fontSize: 12, lineHeight: 1.6, marginBottom: 4 }}>{item.summary}</div>
                 ) : item.description ? (

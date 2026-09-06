@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { writeClient } from "@/sanity/lib/write-client";
-import { getAnthropicKey } from "@/lib/admin";
+import { getAnthropicKey, checkAdminAuth } from "@/lib/admin";
 import { scrapeUrl } from "@/lib/firecrawl";
 import { sendTelegram } from "@/lib/telegram";
 
-function verifyCron(req: NextRequest) {
+async function verifyCron(req: NextRequest) {
   if (process.env.NODE_ENV !== "production") return true;
   const auth = req.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
+  if (auth === `Bearer ${process.env.CRON_SECRET}`) return true;
+  return checkAdminAuth(req as unknown as Request);
 }
 
 const ENRICH_PROMPT = (title: string, source: string, text: string, lang: string) => `
@@ -34,7 +35,7 @@ Return ONLY valid JSON (no markdown):
 `.trim();
 
 export async function GET(req: NextRequest) {
-  if (!verifyCron(req)) {
+  if (!(await verifyCron(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

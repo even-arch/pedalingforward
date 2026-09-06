@@ -8,6 +8,16 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? "collected";
+
+  if (status === "counts") {
+    const counts = await writeClient.fetch<{ collected: number; raw: number; dismissed: number }>(
+      `{"collected": count(*[_type == "mediaItem" && status == "collected"]), "raw": count(*[_type == "mediaItem" && status == "raw"]), "dismissed": count(*[_type == "mediaItem" && status == "dismissed"])}`,
+      {},
+      { cache: "no-store" }
+    );
+    return Response.json({ counts });
+  }
+
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100);
 
   const items = await writeClient.fetch(
