@@ -33,6 +33,7 @@ export default defineConfig({
             S.documentTypeListItem('brand').title('Brands'),
             S.divider(),
             S.documentTypeListItem('mediaSource').title('RSS 來源'),
+            S.documentTypeListItem('mediaItem').title('情報室 Media Items'),
           ]),
     }),
     visionTool(),

@@ -82,11 +82,43 @@ export const siteSettings = defineType({
       description: 'Brands shown in the homepage brand strip. Order matters.',
       validation: (Rule) => Rule.max(12),
     }),
+
+    // ── Admin ────────────────────────────────────────────────────
+    defineField({
+      name: 'adminPassword',
+      title: 'Admin Password',
+      type: 'string',
+      group: 'admin',
+      description: 'Password for /admin section. Store a strong random string.',
+    }),
+    defineField({
+      name: 'anthropicApiKey',
+      title: 'Anthropic API Key',
+      type: 'string',
+      group: 'admin',
+      description: 'Claude API key for AI filtering + article generation. Can also be set via ANTHROPIC_API_KEY env var.',
+    }),
+    defineField({
+      name: 'aiWritingRules',
+      title: 'AI Writing Rules',
+      type: 'text',
+      rows: 8,
+      group: 'admin',
+      description: 'Style guide injected into AI article generation prompts.',
+      initialValue: `Writing for Pedaling Forward:
+- Audience: global bicycle shop owners, distributors, and sourcing managers
+- Tone: professional, concise, trade-focused
+- Perspective: Taiwan-based bicycle component industry expertise
+- Always mention business/supply chain angle, not just product specs
+- Use metric units; spell out acronyms on first use
+- No marketing fluff; cite sources (linked text, not bare URLs)`,
+    }),
   ],
   groups: [
     {name: 'hero', title: 'Hero'},
     {name: 'join', title: 'Join Section'},
     {name: 'content', title: 'Homepage Content'},
+    {name: 'admin', title: 'Admin'},
   ],
   preview: {
     prepare() {
