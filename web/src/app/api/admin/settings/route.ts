@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   }
 
   const settings = await writeClient.fetch(
-    `*[_type == "siteSettings" && _id == $id][0]{adminPassword, anthropicApiKey, aiWritingRules}`,
+    `*[_type == "siteSettings" && _id == $id][0]{adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules}`,
     { id: SETTINGS_ID },
     { cache: "no-store" }
   );
@@ -23,11 +23,12 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { adminPassword, anthropicApiKey, aiWritingRules } = body as Record<string, string>;
+  const { adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules } = body as Record<string, string>;
 
   const patch: Record<string, string> = {};
   if (adminPassword !== undefined) patch.adminPassword = adminPassword;
   if (anthropicApiKey !== undefined) patch.anthropicApiKey = anthropicApiKey;
+  if (openaiApiKey !== undefined) patch.openaiApiKey = openaiApiKey;
   if (aiWritingRules !== undefined) patch.aiWritingRules = aiWritingRules;
 
   if (!Object.keys(patch).length) {

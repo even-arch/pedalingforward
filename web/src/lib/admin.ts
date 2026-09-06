@@ -10,10 +10,11 @@ const readClient = createClient({
 
 let cachedPassword: string | null = null;
 let cachedApiKey: string | null = null;
+let cachedOpenAIKey: string | null = null;
 
 async function getSettings() {
-  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; aiWritingRules?: string}>(
-    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, aiWritingRules}`,
+  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; openaiApiKey?: string; aiWritingRules?: string}>(
+    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, openaiApiKey, aiWritingRules}`,
     {},
     { cache: "no-store" }
   );
@@ -35,6 +36,14 @@ export async function getAnthropicKey(): Promise<string | null> {
   return cachedApiKey;
 }
 
+export async function getOpenAIKey(): Promise<string | null> {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+  if (cachedOpenAIKey) return cachedOpenAIKey;
+  const settings = await getSettings();
+  cachedOpenAIKey = settings?.openaiApiKey ?? null;
+  return cachedOpenAIKey;
+}
+
 export async function getAiWritingRules(): Promise<string> {
   const settings = await getSettings();
   return settings?.aiWritingRules ?? "Write concise, professional trade news for the global bicycle industry.";
@@ -53,4 +62,5 @@ export async function checkAdminAuth(req: Request): Promise<boolean> {
 export function invalidateSettingsCache() {
   cachedPassword = null;
   cachedApiKey = null;
+  cachedOpenAIKey = null;
 }

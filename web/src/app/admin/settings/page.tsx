@@ -6,6 +6,7 @@ import { useAuth } from "../layout";
 type Settings = {
   adminPassword?: string;
   anthropicApiKey?: string;
+  openaiApiKey?: string;
   aiWritingRules?: string;
 };
 
@@ -86,6 +87,7 @@ export default function SettingsPage() {
       <form onSubmit={save}>
         {field("管理員密碼", "adminPassword", "password")}
         {field("Anthropic API Key", "anthropicApiKey", "password")}
+        {field("OpenAI API Key", "openaiApiKey", "password")}
         {field("AI 寫作規則", "aiWritingRules", "textarea")}
 
         <button
@@ -102,7 +104,8 @@ export default function SettingsPage() {
         <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.7 }}>
           <div>• <code style={{ color: "#a09890" }}>SANITY_WRITE_TOKEN</code> — Sanity Editor token（必填）</div>
           <div>• <code style={{ color: "#a09890" }}>ADMIN_PASSWORD</code> — 覆蓋此頁管理員密碼（可選）</div>
-          <div>• <code style={{ color: "#a09890" }}>ANTHROPIC_API_KEY</code> — 覆蓋此頁 API Key（可選）</div>
+          <div>• <code style={{ color: "#a09890" }}>ANTHROPIC_API_KEY</code> — 覆蓋此頁 Anthropic Key（可選）</div>
+          <div>• <code style={{ color: "#a09890" }}>OPENAI_API_KEY</code> — 覆蓋此頁 OpenAI Key（可選）</div>
           <div>• <code style={{ color: "#a09890" }}>CRON_SECRET</code> — 保護 cron 端點（建議設定）</div>
         </div>
       </div>

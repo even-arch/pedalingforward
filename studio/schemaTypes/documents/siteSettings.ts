@@ -99,6 +99,13 @@ export const siteSettings = defineType({
       description: 'Claude API key for AI filtering + article generation. Can also be set via ANTHROPIC_API_KEY env var.',
     }),
     defineField({
+      name: 'openaiApiKey',
+      title: 'OpenAI API Key',
+      type: 'string',
+      group: 'admin',
+      description: 'OpenAI API key. Can also be set via OPENAI_API_KEY env var.',
+    }),
+    defineField({
       name: 'aiWritingRules',
       title: 'AI Writing Rules',
       type: 'text',
