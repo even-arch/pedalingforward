@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TradeMetric {
+  id           String   @id @default(cuid())
+  source       String
+  hsCode       String
+  reporterCode String
+  partnerCode  String
+  flow         String
+  period       String
+  value        Float
+  quantity     Float?
+  unit         String?
+  createdAt    DateTime @default(now())
+
+  @@unique([source, hsCode, reporterCode, partnerCode, flow, period])
+  @@index([hsCode, period])
+}
+
+model GlobalEvent {
+  id         String        @id @default(cuid())
+  source     String
+  eventDate  DateTime
+  title      String
+  summary    String?       @db.Text
+  url        String?
+  eventCode  String?
+  tone       Float?
+  countries  String[]
+  industries String[]
+  tags       String[]
+  createdAt  DateTime      @default(now())
+  alerts     SignalAlert[]
+
+  @@index([eventDate])
+  @@index([tags])
+}
+
+model CausalRule {
+  id              String        @id @default(cuid())
+  industry        String
+  hsCode          String
+  triggerEvent    String        @db.Text
+  triggerTags     String[]
+  propagationPath String        @db.Text
+  tradeOutcome    String        @db.Text
+  lagMonths       Int
+  confidence      Float
+  verified        Boolean       @default(false)
+  evidencePeriod  String
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  alerts          SignalAlert[]
+
+  @@index([industry, hsCode])
+}
+
+model UserAnnotation {
+  id        String   @id @default(cuid())
+  period    String
+  hsCode    String?
+  country   String?
+  note      String   @db.Text
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([period])
+  @@index([country, hsCode])
+}
+
+model SignalAlert {
+  id                String      @id @default(cuid())
+  causalRuleId      String
+  causalRule        CausalRule  @relation(fields: [causalRuleId], references: [id])
+  triggerEventId    String
+  triggerEvent      GlobalEvent @relation(fields: [triggerEventId], references: [id])
+  predictedOutcome  String      @db.Text
+  expectedLagMonths Int
+  status            String      @default("pending")
+  createdAt         DateTime    @default(now())
+
+  @@index([status])
+}
