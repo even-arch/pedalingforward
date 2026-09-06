@@ -20,7 +20,7 @@ export const homepageQuery = groq`{
     },
     "featuredBrands": featuredBrands[]->{_id, name}
   },
-  "recentPosts": *[_type == "post"] | order(publishedAt desc)[0...6]{
+  "recentPosts": *[_type == "post" && status != "draft"] | order(publishedAt desc)[0...6]{
     _id,
     title,
     slug,

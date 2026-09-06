@@ -77,6 +77,7 @@ export async function POST(req: Request) {
 
   const postDoc = {
     _type: "post",
+    status: "draft",
     postType: "industry",
     audience: audience ?? "both",
     title: {

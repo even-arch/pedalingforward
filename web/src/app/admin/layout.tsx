@@ -73,6 +73,7 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
 
 const NAV = [
   { href: "/admin/media", label: "情報室" },
+  { href: "/admin/compose", label: "草稿" },
   { href: "/admin/settings", label: "設定" },
 ];
 

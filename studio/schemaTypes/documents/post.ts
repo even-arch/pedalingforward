@@ -101,6 +101,26 @@ export const post = defineType({
       type: 'localizedBlockContent',
     }),
     defineField({
+      name: 'status',
+      title: 'Status',
+      type: 'string',
+      options: {
+        list: [
+          {title: '📝 草稿 Draft', value: 'draft'},
+          {title: '✅ 已發布 Published', value: 'published'},
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'draft',
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'editorialNote',
+      title: '編輯備注（一句話判斷）',
+      type: 'string',
+      description: '編輯加的一句話：這件事對台灣廠商/車店意味著什麼。上線後會顯示在文章頂端。',
+    }),
+    defineField({
       name: 'sourceUrl',
       title: 'Source URL',
       type: 'url',
