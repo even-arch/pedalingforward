@@ -2,6 +2,7 @@ import {localizedBlockContent, localizedString, localizedText} from './objects/l
 import {author} from './documents/author'
 import {brand} from './documents/brand'
 import {category} from './documents/category'
+import {mediaSource} from './documents/mediaSource'
 import {post} from './documents/post'
 import {siteSettings} from './documents/siteSettings'
 
@@ -14,6 +15,7 @@ export const schemaTypes = [
   author,
   brand,
   category,
+  mediaSource,
   post,
   siteSettings,
 ]
