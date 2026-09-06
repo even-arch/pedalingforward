@@ -245,6 +245,19 @@ export default function MediaPage() {
     }
   }
 
+  async function retag() {
+    showToast("補打標籤中…");
+    try {
+      const res = await fetch("/api/admin/retag", { method: "POST", headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(data.message ?? `✅ 已補打 ${data.tagged} 篇`);
+      load();
+    } catch (err) {
+      showToast(`失敗: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function seedSources() {
     showToast("匯入預設 RSS 來源中…");
     try {
@@ -288,6 +301,10 @@ export default function MediaPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>情報室</h1>
         <span style={{ flex: 1 }} />
+        <button onClick={retag}
+          style={{ padding: "6px 12px", background: "#1a2a1a", border: "1px solid #2a402a", color: "#a0c0a0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          補打標籤
+        </button>
         <button onClick={seedSources}
           style={{ padding: "6px 12px", background: "#1a1a2e", border: "1px solid #2a2844", color: "#8a9adf", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           匯入預設來源
