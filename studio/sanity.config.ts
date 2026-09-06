@@ -31,6 +31,8 @@ export default defineConfig({
             S.documentTypeListItem('category').title('Categories'),
             S.documentTypeListItem('author').title('Authors'),
             S.documentTypeListItem('brand').title('Brands'),
+            S.divider(),
+            S.documentTypeListItem('mediaSource').title('RSS 來源'),
           ]),
     }),
     visionTool(),
