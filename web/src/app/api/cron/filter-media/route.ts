@@ -10,27 +10,22 @@ async function verifyCron(req: NextRequest) {
   return checkAdminAuth(req as unknown as Request);
 }
 
-const SYSTEM_PROMPT = `You are an editorial filter for Pedaling Forward, a trade publication focused on the global bicycle component supply chain, particularly from a Taiwan/Asia manufacturer perspective.
+const SYSTEM_PROMPT = `You are a content tagger for Pedaling Forward, a trade publication about the global bicycle industry.
 
-Score each article 0-10 for relevance:
-8-10: Highly relevant — supply chain news, component specs/launches, OEM/ODM market moves, industry mergers, sourcing, Taiwan/China manufacturing, tariffs/trade policy
-5-7: Relevant — retailer/distributor news, product reviews with strong trade angle, standards changes, trade shows
-3-4: Marginally relevant — general cycling industry news with minor trade angle
-0-2: Not relevant — pure race results, fitness lifestyle, consumer product reviews without trade angle
+Your only job per article:
+1. Decide if it is about BICYCLES (including e-bikes, cargo bikes, cycling infrastructure, bike components, bike retail). If it mentions motorcycles, mopeds, or scooters with no bicycle angle → NOT relevant.
+2. If relevant: assign as many accurate tags as apply. Be generous — tags are used for search and filtering.
 
-Also assign 1-3 tags from this list (pick only what truly applies):
-- supply-chain: sourcing, OEM/ODM, manufacturing, factory, components supply
-- product-launch: new product announcements, spec releases
-- market-news: mergers, acquisitions, company news, market trends
-- regulation: standards, safety rules, trade policy, tariffs, import/export
-- trade-show: Eurobike, Taipei Cycle, Sea Otter, industry exhibitions
-- retail: bike shops, distributors, dealers, retail chains
-- tech: technology specs, materials, engineering, testing
-- e-bike: electric bikes, motors, batteries
-- urban: city cycling infrastructure, bike lanes, cycling promotion, local government cycling policies
+Tag categories to consider (use these exact values where they fit):
+TOPIC: supply-chain, product-launch, market-news, regulation, trade-show, retail, tech, e-bike, urban, cargo-bike, gravel, mtb, road
+BRANDS: shimano, sram, campagnolo, bosch, brose, mahle, trek, giant, specialized, cannondale, scott, cube, canyon, merida, bianchi, pinarello, colnago — add any other brand name you recognise (lowercase, hyphenated if needed)
+GEO (in addition to sourceRegion): taiwan, japan, china, germany, netherlands, uk, us, france, italy, belgium, denmark, sweden — only add if clearly the geographic focus of the article
+TECH TERMS: carbon-fiber, aluminum, titanium, hydraulic-brakes, dropper-post, suspension, derailleur, chainring, cassette, hub, rim, tire, saddle, handlebar, frame
 
 Return a JSON array matching the input order:
-[{"score": 7, "reason": "one sentence why", "tags": ["supply-chain", "market-news"]}, ...]`;
+[{"relevant": true, "tags": ["supply-chain", "shimano", "japan"]}, ...]
+
+If not relevant: {"relevant": false, "tags": []}`;
 
 export async function GET(req: NextRequest) {
   if (!(await verifyCron(req))) {
@@ -51,16 +46,15 @@ export async function GET(req: NextRequest) {
   }
 
   const anthropic = new Anthropic({ apiKey });
-
   const BATCH = 10;
-  let processed = 0;
+  let analyzed = 0;
   let dismissed = 0;
   const errors: string[] = [];
 
   for (let i = 0; i < items.length; i += BATCH) {
     const batch = items.slice(i, i + BATCH);
     const prompt = batch
-      .map((it, idx) => `${idx + 1}. "${it.title}" (${it.sourceName ?? "unknown source"})\n${it.description ?? ""}`)
+      .map((it, idx) => `${idx + 1}. "${it.title}" (${it.sourceName ?? "unknown"})\n${it.description ?? ""}`)
       .join("\n\n");
 
     try {
@@ -68,30 +62,28 @@ export async function GET(req: NextRequest) {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Score and tag these ${batch.length} articles:\n\n${prompt}` }],
+        messages: [{ role: "user", content: `Tag these ${batch.length} articles:\n\n${prompt}` }],
       });
 
       const text = response.content[0].type === "text" ? response.content[0].text : "";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error("No JSON array in response");
 
-      const scores: { score: number; reason: string; tags?: string[] }[] = JSON.parse(jsonMatch[0]);
+      const results: { relevant: boolean; tags: string[] }[] = JSON.parse(jsonMatch[0]);
 
       for (let j = 0; j < batch.length; j++) {
-        const { score, reason, tags } = scores[j] ?? { score: 0, reason: "parse error", tags: [] };
-        // ≥3 → analyzed (human reviews and selects), <3 → auto-dismissed
-        const status = score >= 3 ? "analyzed" : "dismissed";
+        const { relevant, tags } = results[j] ?? { relevant: false, tags: [] };
+        const status = relevant ? "analyzed" : "dismissed";
         await writeClient
           .patch(batch[j]._id)
-          .set({ relevanceScore: score, relevanceReason: reason, status, tags: tags ?? [] })
+          .set({ status, tags: tags ?? [] })
           .commit();
-        processed++;
-        if (status === "dismissed") dismissed++;
+        if (relevant) analyzed++; else dismissed++;
       }
     } catch (err) {
       errors.push(`batch ${i / BATCH}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  return Response.json({ ok: true, processed, dismissed, analyzed: processed - dismissed, errors });
+  return Response.json({ ok: true, analyzed, dismissed, errors });
 }

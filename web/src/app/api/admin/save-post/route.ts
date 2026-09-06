@@ -111,7 +111,10 @@ export async function POST(req: Request) {
   if (sourceItemIds?.length) {
     await Promise.all(
       sourceItemIds.map((id) =>
-        writeClient.patch(id).set({ generatedPost: { _type: "reference", _ref: created._id } }).commit()
+        writeClient.patch(id).set({
+          generatedPost: { _type: "reference", _ref: created._id },
+          status: "collected",
+        }).commit()
       )
     );
   }

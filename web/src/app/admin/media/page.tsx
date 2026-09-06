@@ -144,7 +144,7 @@ export default function MediaPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [editorialNote, setEditorialNote] = useState("");
   const [search, setSearch] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -157,7 +157,7 @@ export default function MediaPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setSelected(new Set());
-    setActiveTag(null);
+    setActiveTags(new Set());
     setActiveRegion(null);
     try {
       const res = await fetch(`/api/admin/media?status=${tab}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -177,18 +177,6 @@ export default function MediaPage() {
     setItems((prev) => prev.filter((it) => it._id !== id));
     setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
     loadCounts();
-  }
-
-  async function bulkCollect() {
-    const ids = [...selected];
-    if (!ids.length) return;
-    await Promise.all(ids.map((id) =>
-      fetch("/api/admin/media", { method: "PATCH", headers, body: JSON.stringify({ id, status: "collected" }) })
-    ));
-    setItems((prev) => prev.filter((it) => !ids.includes(it._id)));
-    setSelected(new Set());
-    loadCounts();
-    showToast(`✅ 已收錄 ${ids.length} 篇`);
   }
 
   async function generate() {
@@ -276,9 +264,16 @@ export default function MediaPage() {
   const allTags = Array.from(new Set(items.flatMap((it) => it.tags ?? []))).sort();
   const allRegions = Array.from(new Set(items.map((it) => it.sourceRegion).filter(Boolean) as string[])).sort();
 
+  const toggleTag = (tag: string) => setActiveTags((prev) => {
+    const n = new Set(prev);
+    n.has(tag) ? n.delete(tag) : n.add(tag);
+    return n;
+  });
+
   const filtered = items.filter((it) => {
     if (search && !it.title.toLowerCase().includes(search.toLowerCase()) && !it.sourceName?.toLowerCase().includes(search.toLowerCase())) return false;
-    if (activeTag && !(it.tags ?? []).includes(activeTag)) return false;
+    // AND logic: every active tag must be present
+    if (activeTags.size > 0 && ![...activeTags].every((t) => (it.tags ?? []).includes(t))) return false;
     if (activeRegion && it.sourceRegion !== activeRegion) return false;
     return true;
   });
@@ -344,10 +339,12 @@ export default function MediaPage() {
           style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
         {allTags.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#5a5650", flexShrink: 0 }}>類別：</span>
-            {activeTag && <TagChip tag="清除" active={false} onClick={() => setActiveTag(null)} />}
+            <span style={{ fontSize: 11, color: "#5a5650", flexShrink: 0 }}>標籤{activeTags.size > 0 ? `（已選 ${activeTags.size}，AND）` : ""}：</span>
+            {activeTags.size > 0 && (
+              <TagChip tag="清除全部" active={false} onClick={() => setActiveTags(new Set())} />
+            )}
             {allTags.map((tag) => (
-              <TagChip key={tag} tag={tag} active={activeTag === tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} />
+              <TagChip key={tag} tag={tag} active={activeTags.has(tag)} onClick={() => toggleTag(tag)} />
             ))}
           </div>
         )}
@@ -374,12 +371,6 @@ export default function MediaPage() {
         <div style={{ marginBottom: 14, padding: "10px 14px", background: "#1a1916", border: "1px solid #2a2824", borderRadius: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: "#a09890", flexShrink: 0 }}>已選 {selected.size} 篇</span>
           {tab === "analyzed" && (
-            <button onClick={bulkCollect}
-              style={{ padding: "6px 14px", background: "#1e3a1e", border: "1px solid #2a4a2a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-              ✅ 批次收錄
-            </button>
-          )}
-          {tab === "collected" && (
             <>
               <input placeholder="編輯備注（可選，會傳給 AI）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
                 style={{ flex: 1, minWidth: 120, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
@@ -405,7 +396,7 @@ export default function MediaPage() {
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>載入中…</div>
       ) : filtered.length === 0 ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
-          {search || activeTag ? "無符合條件的文章" : tab === "raw" ? "暫無待分析文章。按「擷取 RSS」拉進來。" : tab === "analyzed" ? "暫無已分析文章。按「AI 分析」處理待分析文章。" : tab === "collected" ? "暫無已收錄文章。從已分析選取後收錄。" : "暫無已排除文章。"}
+          {search || activeTags.size > 0 ? "無符合條件的文章" : tab === "raw" ? "暫無待分析文章。按「擷取 RSS」拉進來。" : tab === "analyzed" ? "暫無已分析文章。按「AI 分析」處理待分析文章。" : tab === "collected" ? "暫無已收錄文章。從已分析生成摘要後會自動進來。" : "暫無已排除文章。"}
         </div>
       ) : (
         <div>
@@ -437,7 +428,7 @@ export default function MediaPage() {
                 {(item.tags?.length ?? 0) > 0 && (
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }} onClick={(e) => e.stopPropagation()}>
                     {item.tags!.map((tag) => (
-                      <TagChip key={tag} tag={tag} active={activeTag === tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)} />
+                      <TagChip key={tag} tag={tag} active={activeTags.has(tag)} onClick={() => toggleTag(tag)} />
                     ))}
                   </div>
                 )}
