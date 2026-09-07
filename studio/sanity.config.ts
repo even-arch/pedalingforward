@@ -34,6 +34,8 @@ export default defineConfig({
             S.divider(),
             S.documentTypeListItem('mediaSource').title('RSS 來源'),
             S.documentTypeListItem('mediaItem').title('情報室 Media Items'),
+            S.divider(),
+            S.documentTypeListItem('staticPage').title('靜態頁面'),
           ]),
     }),
     visionTool(),
