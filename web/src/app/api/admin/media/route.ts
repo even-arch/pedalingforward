@@ -23,6 +23,27 @@ export async function GET(req: Request) {
     return Response.json({ counts });
   }
 
+  if (status === "tag-stats") {
+    // Return per-tag counts across all non-raw, non-dismissed items
+    const items = await writeClient.fetch<{ tags?: string[]; status: string }[]>(
+      `*[_type == "mediaItem" && status in ["analyzed","collected"]]{tags, status}`,
+      {},
+      { cache: "no-store" }
+    );
+    const tagMap: Record<string, { analyzed: number; collected: number }> = {};
+    for (const it of items) {
+      for (const tag of it.tags ?? []) {
+        if (!tagMap[tag]) tagMap[tag] = { analyzed: 0, collected: 0 };
+        if (it.status === "analyzed") tagMap[tag].analyzed++;
+        else if (it.status === "collected") tagMap[tag].collected++;
+      }
+    }
+    const tagStats = Object.entries(tagMap)
+      .map(([tag, c]) => ({ tag, total: c.analyzed + c.collected, analyzed: c.analyzed, collected: c.collected }))
+      .sort((a, b) => b.total - a.total);
+    return Response.json({ tagStats });
+  }
+
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 200);
 
   const items = await writeClient.fetch(

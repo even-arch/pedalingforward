@@ -22,6 +22,8 @@ type MediaItem = {
   hasPost?: boolean;
 };
 
+type TagStat = { tag: string; total: number; analyzed: number; collected: number };
+
 type LocaleContent = { title: string; summary: string; keyPoints: string[] };
 type GeneratedArticle = { en: LocaleContent; zh: LocaleContent; ja: LocaleContent; de: LocaleContent };
 type Counts = { raw: number; analyzed: number; collected: number; dismissed: number };
@@ -146,6 +148,8 @@ export default function MediaPage() {
   const [search, setSearch] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [tagStats, setTagStats] = useState<TagStat[] | null>(null);
+  const [showTagStats, setShowTagStats] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -249,6 +253,18 @@ export default function MediaPage() {
     }
   }
 
+  async function loadTagStats() {
+    setShowTagStats(true);
+    if (tagStats) return; // already loaded
+    try {
+      const res = await fetch("/api/admin/media?status=tag-stats", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setTagStats(data.tagStats ?? []);
+    } catch {
+      setTagStats([]);
+    }
+  }
+
   async function seedSources() {
     showToast("匯入預設 RSS 來源中…");
     try {
@@ -334,11 +350,64 @@ export default function MediaPage() {
           style={{ padding: "6px 12px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           AI 分析
         </button>
-        <button onClick={() => triggerCron("/api/cron/enrich-media", "AI 摘要", (d) => `摘要完成：${d.enriched ?? 0} 篇`)}
+        <button onClick={() => triggerCron("/api/cron/enrich-media", "AI 摘要", (d) => `摘要完成：${d.enriched ?? 0} 篇（本批 5 篇）`)}
           style={{ padding: "6px 12px", background: "#1a2a1a", border: "1px solid #2a402a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           AI 摘要
         </button>
+        <button onClick={() => showTagStats ? setShowTagStats(false) : loadTagStats()}
+          style={{ padding: "6px 12px", background: showTagStats ? "#1a2a3a" : "#1e1c19", border: `1px solid ${showTagStats ? "#2a5a8a" : "#2a2824"}`, color: showTagStats ? "#7ab8f0" : "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          標籤統計
+        </button>
       </div>
+
+      {/* Tag stats panel */}
+      {showTagStats && (
+        <div style={{ marginBottom: 20, padding: "16px 18px", background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <span style={{ fontWeight: 600, color: "#e8e4df", fontSize: 14 }}>標籤分佈（已分析 + 已收錄）</span>
+            <button onClick={() => { setTagStats(null); loadTagStats(); }}
+              style={{ padding: "3px 10px", background: "none", border: "1px solid #2a2824", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+              重新整理
+            </button>
+          </div>
+          {tagStats === null ? (
+            <div style={{ color: "#8a8278", fontSize: 13 }}>載入中…</div>
+          ) : tagStats.length === 0 ? (
+            <div style={{ color: "#8a8278", fontSize: 13 }}>尚無資料</div>
+          ) : (
+            <div style={{ display: "grid", gap: 7 }}>
+              {tagStats.map(({ tag, total, analyzed, collected }) => {
+                const maxTotal = tagStats[0].total;
+                const pct = Math.round((total / maxTotal) * 100);
+                return (
+                  <div key={tag} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span
+                      onClick={() => { setShowTagStats(false); setActiveTags(new Set([tag])); }}
+                      style={{ width: 120, fontSize: 11, fontWeight: 600, color: activeTags.has(tag) ? "#D5352A" : "#a09890", flexShrink: 0, cursor: "pointer", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}
+                      title={TAG_LABELS[tag] ?? tag}
+                    >
+                      {TAG_LABELS[tag] ?? tag}
+                    </span>
+                    <div style={{ flex: 1, height: 8, background: "#1a1916", borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{ display: "flex", height: "100%" }}>
+                        <div style={{ width: `${Math.round((collected / maxTotal) * 100)}%`, background: "#4caf50", transition: "width 0.3s" }} />
+                        <div style={{ width: `${Math.round((analyzed / maxTotal) * 100)}%`, background: "#f59e0b", transition: "width 0.3s" }} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: "#8a8278", width: 36, textAlign: "right", flexShrink: 0 }}>{total}</span>
+                    <span style={{ fontSize: 10, color: "#4caf50", width: 28, flexShrink: 0 }}>+{collected}</span>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 10, color: "#5a5650", marginTop: 4, display: "flex", gap: 12 }}>
+                <span>■ <span style={{ color: "#4caf50" }}>綠色</span> = 已收錄</span>
+                <span>■ <span style={{ color: "#f59e0b" }}>黃色</span> = 已分析</span>
+                <span>（點標籤名稱可篩選）</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "1px solid #2a2824" }}>

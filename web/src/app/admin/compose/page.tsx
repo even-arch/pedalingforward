@@ -188,46 +188,85 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
 
 export default function ComposePage() {
   const { token } = useAuth();
+  const [activeStatus, setActiveStatus] = useState<"draft" | "published">("draft");
   const [posts, setPosts] = useState<DraftPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<DraftPost | null>(null);
+  const [unpublishing, setUnpublishing] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/posts?status=draft", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`/api/admin/posts?status=${activeStatus}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setPosts(data.posts ?? []);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, activeStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
+
+  async function unpublish(id: string) {
+    setUnpublishing(id);
+    try {
+      const res = await fetch("/api/admin/posts", { method: "PATCH", headers, body: JSON.stringify({ id, action: "unpublish" }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast("↩ 已退回草稿");
+      load();
+    } catch (err) {
+      showToast(`失敗: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUnpublishing(null);
+    }
+  }
 
   const audienceIcon = (a?: string) => a === "supplier" ? "🏭" : a === "shop" ? "🏪" : "🌐";
 
   return (
     <div>
+      {toast && (
+        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#1e1c19", border: "1px solid #2a2824", borderRadius: 6, padding: "12px 20px", color: "#e8e4df", zIndex: 200, fontSize: 14 }}>
+          {toast}
+        </div>
+      )}
       {editing && <EditPane post={editing} token={token} onDone={() => { setEditing(null); load(); }} />}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>草稿</h1>
-        <span style={{ fontSize: 13, color: "#5a5650" }}>{posts.length} 篇待發布</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>文章管理</h1>
         <button onClick={load} style={{ marginLeft: "auto", padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           重新整理
         </button>
+      </div>
+
+      {/* Status tabs */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "1px solid #2a2824" }}>
+        {([
+          { key: "draft",     label: "草稿",  color: "#f59e0b" },
+          { key: "published", label: "已發布", color: "#4caf50" },
+        ] as const).map(({ key, label, color }) => (
+          <button key={key} onClick={() => setActiveStatus(key)}
+            style={{ padding: "8px 20px", background: "none", border: "none", borderBottom: activeStatus === key ? `2px solid ${color}` : "2px solid transparent", color: activeStatus === key ? color : "#5a5650", cursor: "pointer", fontSize: 13, fontWeight: activeStatus === key ? 600 : 400, marginBottom: -1 }}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>載入中…</div>
       ) : posts.length === 0 ? (
         <div style={{ color: "#8a8278", padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
-          <div>目前沒有草稿。去情報室選文章生成摘要吧。</div>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>{activeStatus === "draft" ? "📭" : "📂"}</div>
+          <div>{activeStatus === "draft" ? "目前沒有草稿。去情報室選文章生成摘要吧。" : "目前沒有已發布文章。"}</div>
         </div>
       ) : (
         <div>
+          <div style={{ fontSize: 12, color: "#5a5650", padding: "4px 0 12px" }}>{posts.length} 篇{activeStatus === "draft" ? "待發布" : "已發布"}</div>
           {posts.map((post) => (
             <div key={post._id}
               onClick={() => setEditing(post)}
@@ -239,6 +278,11 @@ export default function ComposePage() {
                   <span style={{ fontSize: 15, fontWeight: 600, color: "#e8e4df" }}>
                     {audienceIcon(post.audience)} {post.title?.zh || post.title?.en || "(無標題)"}
                   </span>
+                  {activeStatus === "published" && (
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", background: "#1e3a1e", color: "#4caf50", borderRadius: 3 }}>
+                      已發布
+                    </span>
+                  )}
                 </div>
                 {post.editorialNote && (
                   <div style={{ fontSize: 12, color: "#4caf50", marginBottom: 4, fontStyle: "italic" }}>
@@ -256,10 +300,18 @@ export default function ComposePage() {
                   </div>
                 ) : null}
               </div>
-              <div style={{ flexShrink: 0, textAlign: "right" }}>
+              <div style={{ flexShrink: 0, textAlign: "right", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
                 <div style={{ fontSize: 11, color: "#5a5650" }}>{fmt(post._createdAt)}</div>
-                {!post.editorialNote && (
-                  <div style={{ fontSize: 11, color: "#D5352A", marginTop: 4 }}>⚠ 缺備注</div>
+                {activeStatus === "draft" && !post.editorialNote && (
+                  <div style={{ fontSize: 11, color: "#D5352A" }}>⚠ 缺備注</div>
+                )}
+                {activeStatus === "published" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); unpublish(post._id); }}
+                    disabled={unpublishing === post._id}
+                    style={{ padding: "3px 10px", background: "#1e1c19", border: "1px solid #3a3530", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+                    {unpublishing === post._id ? "處理中…" : "退回草稿"}
+                  </button>
                 )}
               </div>
             </div>

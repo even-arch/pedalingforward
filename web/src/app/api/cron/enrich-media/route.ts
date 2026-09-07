@@ -45,10 +45,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Get collected items that haven't been enriched yet (no summary)
+  // Batch capped at 5 to stay within Vercel Function timeout
   const items = await writeClient.fetch<{
     _id: string; title: string; url: string; sourceName?: string; sourceLanguage?: string; description?: string;
   }[]>(
-    `*[_type == "mediaItem" && status == "collected" && !defined(summary)][0...20]{
+    `*[_type == "mediaItem" && status == "collected" && !defined(summary)][0...5]{
       _id, title, url, sourceName, sourceLanguage, description
     }`,
     {},
@@ -66,11 +67,14 @@ export async function GET(req: NextRequest) {
 
   for (const item of items) {
     try {
-      // Try Firecrawl first; fall back to RSS snippet
+      // Try Firecrawl with a 12s timeout; fall back to RSS snippet
       let fullText = "";
       let fetched = false;
 
-      const scraped = await scrapeUrl(item.url);
+      const scraped = await Promise.race([
+        scrapeUrl(item.url),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+      ]);
       if (scraped?.markdown) {
         fullText = scraped.markdown;
         fetched = true;
