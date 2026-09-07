@@ -244,7 +244,7 @@ export default function IntelligencePage() {
             {/* Mode toggle */}
             <div style={{ display: "flex", gap: 0 }}>
               {(["import", "supply"] as const).map((mode, i) => {
-                const labels = { import: "進口市場", supply: "德國供應鏈" };
+                const labels = { import: "進口市場", supply: "供應鏈來源" };
                 const active = chartMode === mode;
                 return (
                   <button
@@ -329,7 +329,7 @@ export default function IntelligencePage() {
               <p className="lab" style={{ color: "#6E6760" }}>
                 {chartMode === "supply"
                   ? `${IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket} 的雙邊來源資料補充中，稍後自動更新`
-                  : "資料載入中"}
+                  : `${HS_LABELS[activeHs]} 進口資料補充中，稍後自動更新`}
               </p>
             </div>
           )}
