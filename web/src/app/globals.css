@@ -103,6 +103,109 @@
   .dim { color: #6E6760; }
 
   /* ── Prose body ── */
+  /* ── Article detail ── */
+  .article-hero-img {
+    width: 100%;
+    max-height: 520px;
+    overflow: hidden;
+    background: #14120F;
+  }
+  .article-hero-img img { width: 100%; height: 520px; object-fit: cover; display: block; }
+  .article-body { padding-block: 56px 80px; }
+  .article-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .article-back {
+    font-family: var(--font-ibm-mono, 'Courier New', monospace);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6E6760;
+    text-decoration: none;
+  }
+  .article-back:hover { color: #14120F; }
+  .article-title {
+    font-weight: 800;
+    font-stretch: 112%;
+    font-size: clamp(32px, 4.8vw, 64px);
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+    max-width: 22ch;
+    margin: 0 0 32px;
+    color: #14120F;
+  }
+  :lang(zh) .article-title,
+  :lang(ja) .article-title { line-height: 1.2; letter-spacing: 0; font-stretch: normal; }
+  .article-note {
+    border-left: 4px solid #D5352A;
+    padding: 14px 20px;
+    background: #FDF4F3;
+    margin-bottom: 32px;
+    max-width: 68ch;
+  }
+  .article-note .lab { display: block; margin-bottom: 6px; color: #D5352A; }
+  .article-note p { margin: 0; font-size: 16px; line-height: 1.6; color: #3A3630; }
+  .article-lead {
+    font-size: clamp(17px, 2vw, 20px);
+    line-height: 1.6;
+    color: #3A3630;
+    max-width: 64ch;
+    margin: 0 0 40px;
+  }
+  .article-prose {
+    max-width: 68ch;
+    font-size: 17px;
+    line-height: 1.75;
+    color: #3A3630;
+  }
+  .article-prose p { margin: 0 0 1.4em; }
+  .article-prose strong { font-weight: 700; color: #14120F; }
+  .article-prose em { font-style: italic; }
+  .article-prose a { color: #D5352A; text-decoration: underline; }
+  .article-prose a:hover { color: #A01912; }
+  .article-h2 { font-size: clamp(20px, 2.6vw, 28px); font-weight: 700; margin: 2em 0 0.6em; color: #14120F; line-height: 1.25; }
+  .article-h3 { font-size: clamp(17px, 2vw, 21px); font-weight: 700; margin: 1.6em 0 0.5em; color: #14120F; line-height: 1.3; }
+  .article-quote {
+    border-left: 3px solid #D5352A;
+    margin: 1.6em 0;
+    padding: 4px 20px;
+    color: #6E6760;
+    font-style: italic;
+  }
+  .article-figure { margin: 2em 0; }
+  .article-figure img { width: 100%; height: auto; border-radius: 2px; }
+  .article-figure figcaption { margin-top: 8px; font-size: 13px; color: #9A9088; font-style: italic; }
+  .article-source {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #DDD8D1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .article-source a { font-size: 13px; color: #6E6760; word-break: break-all; }
+  .article-source a:hover { color: #D5352A; }
+  .article-brands {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .article-brand-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .article-brand-tag {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    background: #F4F2EF;
+    border-radius: 3px;
+    color: #6E6760;
+  }
+
   .prose {
     max-width: 62ch;
     display: flex;
