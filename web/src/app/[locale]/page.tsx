@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { cachedSanity } from "@/sanity/lib/live";
 import { homepageQuery } from "@/sanity/queries/home";
 import { HeroSection } from "@/components/home/HeroSection";
@@ -11,6 +12,7 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "home" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = (await cachedSanity({ query: homepageQuery })) as { data: any };
 
@@ -34,7 +36,7 @@ export default async function HomePage({
       <section style={{ paddingBlock: "88px" }}>
         <div className="wrap">
           <div className="feedhead">
-            <h2 className="display">Latest</h2>
+            <h2 className="display">{t("latest")}</h2>
           </div>
           <div className="feed">
             {leadPost && <LeadArticle post={leadPost} locale={locale} />}

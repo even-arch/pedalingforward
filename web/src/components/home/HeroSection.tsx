@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { loc } from "@/lib/locale";
 import { BrandMark } from "@/components/BrandMark";
 
@@ -30,7 +31,8 @@ const TICKER_ITEMS = [
   "Pedals", "Seatposts", "Rims", "Bearings", "Tools",
 ];
 
-export function HeroSection({ locale, eyebrow, headline, subtext, stats }: Props) {
+export async function HeroSection({ locale, eyebrow, headline, subtext, stats }: Props) {
+  const t = await getTranslations({ locale, namespace: "home" });
   const displayStats = stats?.length ? stats : FALLBACK.stats;
 
   return (
@@ -45,7 +47,7 @@ export function HeroSection({ locale, eyebrow, headline, subtext, stats }: Props
           <h1 className="display">{loc(headline, locale) || FALLBACK.headline}</h1>
           <p className="lead">{loc(subtext, locale) || FALLBACK.subtext}</p>
           <Link href={`/${locale}/articles`} className="cta">
-            Browse all articles <span aria-hidden="true">→</span>
+            {t("browseAll")} <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
