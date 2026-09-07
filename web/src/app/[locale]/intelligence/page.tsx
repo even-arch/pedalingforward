@@ -10,7 +10,7 @@ import {
 
 type ImportMetric  = { reporterCode: string; hsCode: string; period: string; value: number };
 type ExportMetric  = { reporterCode: string; hsCode: string; period: string; value: number };
-type BilateralMetric = { partnerCode: string; hsCode: string; period: string; value: number };
+type BilateralMetric = { reporterCode: string; partnerCode: string; hsCode: string; period: string; value: number };
 type GlobalEvent = {
   id: string; title: string; eventDate: string; countries: string[];
   tags: string[]; source: string; tone?: number;
@@ -46,8 +46,9 @@ const TAG_LABELS: Record<string, string> = {
 };
 
 const HS_LABELS: Record<string, string> = {
-  "8714": "HS 8714 零件",
-  "8712": "HS 8712 整車",
+  "8714":   "HS 8714 零件",
+  "8712":   "HS 8712 整車",
+  "871430": "HS 871430 電動零件",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -83,7 +84,8 @@ export default function IntelligencePage() {
   const [loading, setLoading] = useState(true);
 
   const [chartMode, setChartMode] = useState<"import" | "supply">("import");
-  const [activeHs, setActiveHs] = useState<"8714" | "8712">("8714");
+  const [activeHs, setActiveHs] = useState<"8714" | "8712" | "871430">("8714");
+  const [supplyMarket, setSupplyMarket] = useState<string>("DE");
   const [activeCountries, setActiveCountries] = useState<Set<string>>(
     new Set(["DE", "US", "NL", "GB", "JP"])
   );
@@ -121,35 +123,43 @@ export default function IntelligencePage() {
       .map(([period, vals]) => ({ period, ...vals }));
   }, [importMetrics, activeHs]);
 
-  // ── Chart data: DE supply chain view (bilateral) ─────────────────────────
+  // ── Chart data: supply chain view (bilateral, any market) ─────────────────
 
   const supplyChartData = useMemo(() => {
-    // DE world total per period for this HS code
-    const deWorld: Record<string, number> = {};
+    // World total for selected market + HS code
+    const worldByPeriod: Record<string, number> = {};
+    // For 871430, fall back to 8714 world total if 871430 world not available
+    const hsFallback = activeHs === "871430" ? "8714" : activeHs;
     for (const m of importMetrics) {
-      if (m.reporterCode === "DE" && m.hsCode === activeHs) {
-        deWorld[m.period] = m.value / 1_000_000;
+      if (m.reporterCode === supplyMarket && (m.hsCode === activeHs || m.hsCode === hsFallback)) {
+        // Prefer exact HS match
+        if (m.hsCode === activeHs || !worldByPeriod[m.period]) {
+          worldByPeriod[m.period] = m.value / 1_000_000;
+        }
       }
     }
 
-    // Bilateral breakdown by partner
+    // Bilateral breakdown by partner for the selected market
     const byPeriod: Record<string, Record<string, number>> = {};
     for (const m of bilateralMetrics) {
-      if (m.hsCode !== activeHs) continue;
+      if (m.reporterCode !== supplyMarket) continue;
+      // For 871430 bilateral, fall back to 8714 if 871430-specific bilateral not available
+      const hsMatch = m.hsCode === activeHs || (activeHs === "871430" && m.hsCode === "8714");
+      if (!hsMatch) continue;
       if (!byPeriod[m.period]) byPeriod[m.period] = {};
       const partnerKey = m.partnerCode.replace("PARTNER_", "");
-      byPeriod[m.period][partnerKey] = m.value / 1_000_000;
+      byPeriod[m.period][partnerKey] = (byPeriod[m.period][partnerKey] ?? 0) + m.value / 1_000_000;
     }
 
     return Object.entries(byPeriod)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([period, vals]) => {
         const namedTotal = Object.values(vals).reduce((s, v) => s + v, 0);
-        const worldTotal = deWorld[period] ?? 0;
-        const other = worldTotal > namedTotal ? parseFloat((worldTotal - namedTotal).toFixed(2)) : undefined;
+        const worldTotal = worldByPeriod[period] ?? 0;
+        const other = worldTotal > namedTotal + 0.01 ? parseFloat((worldTotal - namedTotal).toFixed(2)) : undefined;
         return { period, ...vals, ...(other !== undefined ? { Other: other } : {}) };
       });
-  }, [bilateralMetrics, importMetrics, activeHs]);
+  }, [bilateralMetrics, importMetrics, activeHs, supplyMarket]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
 
@@ -257,8 +267,8 @@ export default function IntelligencePage() {
             </div>
 
             {/* HS code toggle */}
-            <div style={{ display: "flex", gap: 6 }}>
-              {(["8714", "8712"] as const).map((hs) => (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(["8714", "8712", "871430"] as const).map((hs) => (
                 <Chip
                   key={hs}
                   label={HS_LABELS[hs]}
@@ -269,16 +279,32 @@ export default function IntelligencePage() {
             </div>
           </div>
 
+          {/* Supply chain market selector */}
+          {chartMode === "supply" && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+              <span className="lab" style={{ color: "#6E6760" }}>分析市場：</span>
+              {Object.entries(IMPORT_COUNTRY_NAMES).map(([code, name]) => (
+                <Chip
+                  key={code}
+                  label={name}
+                  active={supplyMarket === code}
+                  color={IMPORT_COUNTRY_COLORS[code]}
+                  onClick={() => setSupplyMarket(code)}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Chart header + country toggles */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 20, marginBottom: 24, flexWrap: "wrap" }}>
             <div style={{ flex: 1 }}>
               <p className="lab" style={{ color: "#6E6760", marginBottom: 6 }}>
-                {chartMode === "import" ? "主要市場月度進口額" : "德國進口來源分佈"}
+                {chartMode === "import" ? "主要市場月度進口額" : `${IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket} 進口來源分佈`}
               </p>
               <h2 style={{ fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
                 {chartMode === "import"
-                  ? (activeHs === "8714" ? "自行車零件" : "整車") + "月度進口額"
-                  : "德國採購來源（" + (activeHs === "8714" ? "零件" : "整車") + "）"}
+                  ? ({ "8714": "自行車零件", "8712": "整車", "871430": "電動自行車零件" }[activeHs] ?? activeHs) + "月度進口額"
+                  : ({ "8714": "零件", "8712": "整車", "871430": "電動零件" }[activeHs] ?? activeHs) + "採購來源（" + (IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket) + "）"}
               </h2>
             </div>
 
@@ -286,27 +312,27 @@ export default function IntelligencePage() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {chartMode === "import"
                 ? Object.entries(IMPORT_COUNTRY_NAMES).map(([code, name]) => (
-                    <Chip
-                      key={code}
-                      label={name}
-                      active={activeCountries.has(code)}
-                      color={IMPORT_COUNTRY_COLORS[code]}
-                      onClick={() => toggleCountry(code)}
-                    />
+                    <Chip key={code} label={name} active={activeCountries.has(code)}
+                      color={IMPORT_COUNTRY_COLORS[code]} onClick={() => toggleCountry(code)} />
                   ))
                 : Object.entries(SUPPLY_PARTNER_NAMES).map(([code, name]) => (
-                    <Chip
-                      key={code}
-                      label={name}
-                      active={activePartners.has(code)}
-                      color={SUPPLY_PARTNER_COLORS[code]}
-                      onClick={() => togglePartner(code)}
-                    />
+                    <Chip key={code} label={name} active={activePartners.has(code)}
+                      color={SUPPLY_PARTNER_COLORS[code]} onClick={() => togglePartner(code)} />
                   ))}
             </div>
           </div>
 
           {/* Chart */}
+          {chartData.length === 0 && (
+            <div style={{ background: "#fff", border: "1px solid #DDD8D1", padding: "80px 24px", textAlign: "center" }}>
+              <p className="lab" style={{ color: "#6E6760" }}>
+                {chartMode === "supply"
+                  ? `${IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket} 的雙邊來源資料補充中，稍後自動更新`
+                  : "資料載入中"}
+              </p>
+            </div>
+          )}
+          {chartData.length > 0 && (
           <div style={{ background: "#fff", padding: "24px 8px 24px 0", border: "1px solid #DDD8D1" }}>
             <ResponsiveContainer width="100%" height={340}>
               <LineChart data={chartData} margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
@@ -375,11 +401,12 @@ export default function IntelligencePage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+          )}
 
           <p style={{ marginTop: 10, fontFamily: "var(--font-ibm-mono, monospace)", fontSize: 10.5, color: "#6E6760", letterSpacing: "0.06em" }}>
             {chartMode === "import"
               ? "單位：百萬美元（各國進口申報）｜資料：UN Comtrade"
-              : "單位：百萬美元（德國進口申報，依來源國拆分）｜台灣不在 UN 成員名單，以德國對台進口代替｜資料：UN Comtrade"}
+              : `單位：百萬美元（${IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket}進口申報，依來源國拆分）｜台灣不在 UN 成員名單，以各市場對台進口代替｜資料：UN Comtrade`}
           </p>
         </div>
       </section>

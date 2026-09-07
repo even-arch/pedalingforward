@@ -18,7 +18,7 @@ const EXPORT_ORIGINS: { code: string; reporterCode: number }[] = [
   { code: "PL", reporterCode: 616 },
 ];
 
-const DE_BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
+const BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
   { code: "TW", partnerCode: 490 },
   { code: "CN", partnerCode: 156 },
   { code: "IT", partnerCode: 380 },
@@ -27,7 +27,8 @@ const DE_BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
   { code: "JP", partnerCode: 392 },
 ];
 
-const HS_CODES = ["8714", "8712"];
+// 871430 = electrically-assisted cycle parts (e-bike sub-code of 8714)
+const HS_CODES = ["8714", "8712", "871430"];
 
 function addMonths(yyyymm: string, n: number): string {
   const year = parseInt(yyyymm.slice(0, 4));
@@ -148,35 +149,38 @@ export async function ingestComtradeUpdates(): Promise<IngestResult[]> {
     }
   }
 
-  // ── 3. DE bilateral (who sells to Germany) ────────────────────────────────
-  for (const { code: partCode, partnerCode } of DE_BILATERAL_PARTNERS) {
-    for (const hsCode of HS_CODES) {
-      const dbPartnerCode = `PARTNER_${partCode}`;
-      const latest = await getLatestPeriod("DE", hsCode, "import", dbPartnerCode);
-      const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
-      if (startFrom > upTo) continue;
+  // ── 3. Bilateral breakdown for all import markets ─────────────────────────
+  for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
+    for (const { code: partCode, partnerCode } of BILATERAL_PARTNERS) {
+      if (marketCode === partCode) continue; // skip self-reference (e.g. JP←JP)
+      for (const hsCode of HS_CODES) {
+        const dbPartnerCode = `PARTNER_${partCode}`;
+        const latest = await getLatestPeriod(marketCode, hsCode, "import", dbPartnerCode);
+        const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
+        if (startFrom > upTo) continue;
 
-      const months: string[] = [];
-      let cur = startFrom;
-      while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
+        const months: string[] = [];
+        let cur = startFrom;
+        while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
 
-      let saved = 0;
-      let error: string | undefined;
-      for (const period of months) {
-        const url = `${BASE}?reporterCode=276&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
-        const { ok, status, data } = await fetchComtrade(url);
-        if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
+        let saved = 0;
+        let error: string | undefined;
+        for (const period of months) {
+          const url = `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
+          const { ok, status, data } = await fetchComtrade(url);
+          if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
-        const total = (data as ComtradeRow[])
-          .filter((r) => r.flowCode === "M" && r.primaryValue > 0)
-          .reduce((s, r) => s + r.primaryValue, 0);
+          const total = (data as ComtradeRow[])
+            .filter((r) => r.flowCode === "M" && r.primaryValue > 0)
+            .reduce((s, r) => s + r.primaryValue, 0);
 
-        if (total > 0) {
-          await upsertMetric({ hsCode, reporterCode: "DE", partnerCode: dbPartnerCode, flow: "import", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total });
-          saved++;
+          if (total > 0) {
+            await upsertMetric({ hsCode, reporterCode: marketCode, partnerCode: dbPartnerCode, flow: "import", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total });
+            saved++;
+          }
         }
+        results.push({ task: `${marketCode}←${partCode} ${hsCode}`, saved, error });
       }
-      results.push({ task: `DE←${partCode} ${hsCode}`, saved, error });
     }
   }
 

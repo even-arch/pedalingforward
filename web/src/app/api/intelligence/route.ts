@@ -50,14 +50,13 @@ export async function GET(req: NextRequest) {
           select: { reporterCode: true, hsCode: true, period: true, value: true },
           orderBy: { period: "asc" },
         }),
-        // DE bilateral: who sells to Germany, by partner country
+        // Bilateral: all import markets' breakdown by supplier country
         db.tradeMetric.findMany({
           where: {
-            reporterCode: "DE",
             flow: "import",
             NOT: { partnerCode: "WORLD" },
           },
-          select: { partnerCode: true, hsCode: true, period: true, value: true },
+          select: { reporterCode: true, partnerCode: true, hsCode: true, period: true, value: true },
           orderBy: { period: "asc" },
         }),
         db.globalEvent.findMany({
