@@ -73,21 +73,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await writeClient.fetch<{ _id?: string }>(
-    `*[_type == "siteSettings" && _id == $id][0]{ _id }`,
-    { id: SETTINGS_ID },
-    { cache: "no-store" }
-  );
+  try {
+    await writeClient
+      .transaction()
+      .createIfNotExists({ _id: SETTINGS_ID, _type: "siteSettings" })
+      .patch(SETTINGS_ID, (p) => p.set(CONTENT))
+      .commit();
 
-  if (!existing) {
-    await writeClient.createOrReplace({
-      _id: SETTINGS_ID,
-      _type: "siteSettings",
-      ...CONTENT,
-    });
-  } else {
-    await writeClient.patch(SETTINGS_ID).set(CONTENT).commit();
+    return Response.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: message }, { status: 500 });
   }
-
-  return Response.json({ ok: true });
 }
