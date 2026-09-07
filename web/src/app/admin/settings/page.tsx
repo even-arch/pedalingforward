@@ -13,12 +13,17 @@ type Settings = {
   aiWritingRules?: string;
 };
 
+type IngestResult = { task: string; saved: number; error?: string };
+
 export default function SettingsPage() {
   const { token } = useAuth();
   const [settings, setSettings] = useState<Settings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestResults, setIngestResults] = useState<IngestResult[] | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -54,6 +59,27 @@ export default function SettingsPage() {
 
   const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSettings((s) => ({ ...s, [key]: e.target.value }));
+
+  async function runIngest() {
+    setIngesting(true);
+    setIngestResults(null);
+    setIngestError(null);
+    try {
+      const res = await fetch("/api/admin/ingest-trade", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      setIngestResults(data.results ?? []);
+      showToast(`✅ 更新完成，共存入 ${data.totalSaved} 筆`);
+    } catch (err) {
+      setIngestError(err instanceof Error ? err.message : String(err));
+      showToast("❌ 更新失敗");
+    } finally {
+      setIngesting(false);
+    }
+  }
 
   const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" };
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#a09890", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" };
@@ -127,7 +153,60 @@ export default function SettingsPage() {
         </button>
       </form>
 
-      <div style={{ marginTop: 48, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
+      {/* Trade data ingest */}
+      <div style={{ marginTop: 48, marginBottom: 32 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>貿易資料更新</div>
+        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
+          從 UN Comtrade 補抓最新月份資料（HS 8714 / 8712 / 871430，進口市場 + 出口國 + 雙邊來源）。每月 5 號 02:00 自動執行，也可手動觸發。
+        </p>
+        <button
+          type="button"
+          onClick={runIngest}
+          disabled={ingesting}
+          style={{
+            padding: "10px 24px",
+            background: ingesting ? "#2a2824" : "#1e1c19",
+            border: "1px solid #3a3630",
+            color: ingesting ? "#5a5650" : "#e8e4df",
+            borderRadius: 4,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: ingesting ? "not-allowed" : "pointer",
+          }}
+        >
+          {ingesting ? "更新中…（可能需要數分鐘）" : "立即從 Comtrade 更新"}
+        </button>
+
+        {ingestError && (
+          <div style={{ marginTop: 12, padding: "10px 14px", background: "#2a1410", border: "1px solid #6a2820", borderRadius: 4, color: "#f08070", fontSize: 12 }}>
+            {ingestError}
+          </div>
+        )}
+
+        {ingestResults && ingestResults.length > 0 && (
+          <div style={{ marginTop: 16, padding: "12px 16px", background: "#141210", border: "1px solid #2a2824", borderRadius: 4 }}>
+            <div style={{ fontSize: 11, color: "#5a5650", fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              更新結果
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "2px 16px", fontSize: 12 }}>
+              {ingestResults.filter((r) => r.saved > 0 || r.error).map((r) => (
+                <>
+                  <span key={`${r.task}-task`} style={{ color: "#a09890", fontFamily: "monospace" }}>{r.task}</span>
+                  <span key={`${r.task}-saved`} style={{ color: r.saved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>
+                    {r.saved > 0 ? `+${r.saved}` : "—"}
+                  </span>
+                  <span key={`${r.task}-err`} style={{ color: "#9a5040", fontSize: 11 }}>{r.error ?? ""}</span>
+                </>
+              ))}
+            </div>
+            {ingestResults.every((r) => r.saved === 0 && !r.error) && (
+              <div style={{ color: "#5a5650", fontSize: 12 }}>全部都是最新的，沒有新資料</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 0, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
         <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數（優先於此頁設定）</div>
         <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.8 }}>
           {[
