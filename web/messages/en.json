@@ -7,7 +7,14 @@
     "forShops": "For Shops",
     "forSuppliers": "For Suppliers",
     "forDistributors": "For Distributors",
+    "howItWorks": "How it works",
+    "marketIntel": "Market Intel",
+    "about": "About",
     "goToPatisco": "Go to Patisco"
+  },
+  "home": {
+    "latest": "Latest",
+    "browseAll": "Browse all articles"
   },
   "footer": {
     "tagline": "Taiwanese components. Global bike shops.",

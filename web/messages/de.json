@@ -7,7 +7,14 @@
     "forShops": "Für Shops",
     "forSuppliers": "Für Lieferanten",
     "forDistributors": "Für Händler",
+    "howItWorks": "So funktioniert's",
+    "marketIntel": "Marktinformation",
+    "about": "Über uns",
     "goToPatisco": "Zu Patisco"
+  },
+  "home": {
+    "latest": "Aktuell",
+    "browseAll": "Alle Artikel"
   },
   "footer": {
     "tagline": "Taiwanesische Komponenten. Weltweite Fahrradläden.",

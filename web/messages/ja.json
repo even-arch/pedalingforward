@@ -7,7 +7,14 @@
     "forShops": "ショップ向け",
     "forSuppliers": "サプライヤー向け",
     "forDistributors": "ディストリビューター向け",
+    "howItWorks": "仕組み",
+    "marketIntel": "市場情報",
+    "about": "私たちについて",
     "goToPatisco": "Patisco へ"
+  },
+  "home": {
+    "latest": "最新情報",
+    "browseAll": "すべての記事を見る"
   },
   "footer": {
     "tagline": "台湾パーツ。世界の自転車店へ。",

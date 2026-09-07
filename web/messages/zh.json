@@ -7,7 +7,14 @@
     "forShops": "車店專區",
     "forSuppliers": "供應商專區",
     "forDistributors": "通路商專區",
+    "howItWorks": "如何運作",
+    "marketIntel": "貿易情報",
+    "about": "關於我們",
     "goToPatisco": "前往 Patisco"
+  },
+  "home": {
+    "latest": "最新消息",
+    "browseAll": "瀏覽所有文章"
   },
   "footer": {
     "tagline": "台灣零件。全球車店。",
