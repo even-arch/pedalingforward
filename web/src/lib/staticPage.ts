@@ -1,5 +1,6 @@
 import { writeClient } from "@/sanity/lib/write-client";
 import { staticPageQuery } from "@/sanity/queries/staticPage";
+import { STATIC_PAGE_DEFAULTS } from "./staticPageDefaults";
 
 export type LocalizedStr = { en?: string | null; zh?: string | null; ja?: string | null; de?: string | null };
 
@@ -26,5 +27,11 @@ export type StaticPageData = {
 } | null;
 
 export async function fetchStaticPage(slug: string): Promise<StaticPageData> {
-  return writeClient.fetch<StaticPageData>(staticPageQuery, { slug }, { cache: "no-store" });
+  try {
+    const data = await writeClient.fetch<StaticPageData>(staticPageQuery, { slug }, { cache: "no-store" });
+    if (data) return data;
+  } catch {
+    // fall through to default
+  }
+  return (STATIC_PAGE_DEFAULTS[slug] ?? null) as StaticPageData;
 }

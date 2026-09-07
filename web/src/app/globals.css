@@ -66,6 +66,22 @@
   h1.display { font-size: clamp(46px, 7.6vw, 104px); }
   h2.display { font-size: clamp(32px, 4.4vw, 58px); }
 
+  /* CJK display — tighter tracking doesn't help, and 0.93 line-height is too cramped */
+  :lang(zh) .display {
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    font-stretch: normal;
+  }
+  :lang(ja) .display {
+    line-height: 1.12;
+    letter-spacing: 0;
+    text-transform: none;
+    font-stretch: normal;
+  }
+  :lang(ja) h1.display { font-size: clamp(52px, 8.2vw, 112px); }
+  :lang(ja) h2.display { font-size: clamp(34px, 4.8vw, 62px); }
+
   /* ── Labels ── */
   .lab {
     font-family: var(--font-ibm-mono, 'Courier New', monospace);
