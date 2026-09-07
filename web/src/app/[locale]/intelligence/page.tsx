@@ -49,6 +49,7 @@ const HS_LABELS: Record<string, string> = {
   "8714":   "HS 8714 零件",
   "8712":   "HS 8712 整車",
   "871430": "HS 871430 電動零件",
+  "871160": "HS 871160 電動整車",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ export default function IntelligencePage() {
   const [loading, setLoading] = useState(true);
 
   const [chartMode, setChartMode] = useState<"import" | "supply">("import");
-  const [activeHs, setActiveHs] = useState<"8714" | "8712" | "871430">("8714");
+  const [activeHs, setActiveHs] = useState<"8714" | "8712" | "871430" | "871160">("8714");
   const [supplyMarket, setSupplyMarket] = useState<string>("DE");
   const [activeCountries, setActiveCountries] = useState<Set<string>>(
     new Set(["DE", "US", "NL", "GB", "JP"])
@@ -268,7 +269,7 @@ export default function IntelligencePage() {
 
             {/* HS code toggle */}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["8714", "8712", "871430"] as const).map((hs) => (
+              {(["8714", "8712", "871430", "871160"] as const).map((hs) => (
                 <Chip
                   key={hs}
                   label={HS_LABELS[hs]}
@@ -303,8 +304,8 @@ export default function IntelligencePage() {
               </p>
               <h2 style={{ fontSize: "clamp(20px, 2.2vw, 28px)", fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
                 {chartMode === "import"
-                  ? ({ "8714": "自行車零件", "8712": "整車", "871430": "電動自行車零件" }[activeHs] ?? activeHs) + "月度進口額"
-                  : ({ "8714": "零件", "8712": "整車", "871430": "電動零件" }[activeHs] ?? activeHs) + "採購來源（" + (IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket) + "）"}
+                  ? ({ "8714": "自行車零件", "8712": "整車", "871430": "電動自行車零件", "871160": "電動整車" }[activeHs] ?? activeHs) + "月度進口額"
+                  : ({ "8714": "零件", "8712": "整車", "871430": "電動零件", "871160": "電動整車" }[activeHs] ?? activeHs) + "採購來源（" + (IMPORT_COUNTRY_NAMES[supplyMarket] ?? supplyMarket) + "）"}
               </h2>
             </div>
 

@@ -31,8 +31,8 @@ const EXPORT_ORIGINS = [
   { code: "TW_REPORTER", reporterCode: 490, label: "台灣(代理)" }, // may not have data
 ];
 
-// HS codes to fetch
-const HS_CODES = ["8714", "8712"];
+// HS codes to fetch: 871430 = e-bike parts, 871160 = complete e-bikes with electric motor
+const HS_CODES = ["8714", "8712", "871430", "871160"];
 
 function addMonths(yyyymm, n) {
   const year = parseInt(yyyymm.slice(0, 4));

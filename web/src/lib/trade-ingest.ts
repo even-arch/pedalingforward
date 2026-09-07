@@ -27,8 +27,8 @@ const BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
   { code: "JP", partnerCode: 392 },
 ];
 
-// 871430 = electrically-assisted cycle parts (e-bike sub-code of 8714)
-const HS_CODES = ["8714", "8712", "871430"];
+// 871430 = e-bike parts (sub-code of 8714); 871160 = complete e-bikes with electric motor
+const HS_CODES = ["8714", "8712", "871430", "871160"];
 
 function addMonths(yyyymm: string, n: number): string {
   const year = parseInt(yyyymm.slice(0, 4));

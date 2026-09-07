@@ -29,8 +29,8 @@ const BILATERAL_PARTNERS = [
   { code: "JP", partnerCode: 392 },
 ];
 
-// HS codes including 871430 (e-bike parts, 6-digit sub-code of 8714)
-const HS_CODES = ["8714", "8712", "871430"];
+// 871430 = e-bike parts; 871160 = complete e-bikes with electric motor
+const HS_CODES = ["8714", "8712", "871430", "871160"];
 
 function addMonths(yyyymm, n) {
   const year = parseInt(yyyymm.slice(0, 4));
