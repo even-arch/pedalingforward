@@ -18,10 +18,13 @@
   },
   "footer": {
     "tagline": "台湾パーツ。世界の自転車店へ。",
+    "tradeHeading": "取引",
     "patiscoLink": "Patisco で購入",
     "writingLink": "寄稿",
+    "companyHeading": "会社",
     "aboutLink": "私たちについて",
     "contactLink": "お問い合わせ",
+    "socialHeading": "ソーシャル",
     "rights": "© {year} Point Asia Co., Ltd."
   }
 }

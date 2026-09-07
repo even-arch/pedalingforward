@@ -1,16 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 export default async function Footer() {
   const locale = await getLocale();
+  const t      = await getTranslations({ locale, namespace: "footer" });
   const year   = new Date().getFullYear();
 
   return (
     <footer>
       <div className="wrap">
 
-        {/* 4-column grid */}
         <div className="fgrid">
 
           {/* Logo + tagline */}
@@ -24,32 +24,32 @@ export default async function Footer() {
                 style={{ filter: "brightness(0) invert(1)", height: "auto", width: "100%" }}
               />
             </div>
-            <p className="ftag">Taiwanese components. Global bike shops.</p>
+            <p className="ftag">{t("tagline")}</p>
           </div>
 
           {/* Trade */}
           <div>
-            <h5>Trade</h5>
+            <h5>{t("tradeHeading")}</h5>
             <div className="flist">
               <a href="https://patisco.com" target="_blank" rel="noopener noreferrer">
-                Shop on Patisco
+                {t("patiscoLink")}
               </a>
-              <a href="#">Write for us</a>
+              <a href="#">{t("writingLink")}</a>
             </div>
           </div>
 
           {/* Company */}
           <div>
-            <h5>Company</h5>
+            <h5>{t("companyHeading")}</h5>
             <div className="flist">
-              <Link href={`/${locale}/about`}>About</Link>
-              <a href="#">Contact</a>
+              <Link href={`/${locale}/about`}>{t("aboutLink")}</Link>
+              <a href="#">{t("contactLink")}</a>
             </div>
           </div>
 
           {/* Social */}
           <div>
-            <h5>Social</h5>
+            <h5>{t("socialHeading")}</h5>
             <div className="flist">
               <a href="https://facebook.com/pedalingforward" target="_blank" rel="noopener noreferrer">
                 Facebook
@@ -71,7 +71,7 @@ export default async function Footer() {
             height={34}
             style={{ height: "34px", width: "auto", background: "#fff", padding: "6px 9px" }}
           />
-          <span>© {year} Point Asia Co., Ltd.</span>
+          <span>{t("rights", { year })}</span>
         </div>
 
       </div>

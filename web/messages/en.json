@@ -18,10 +18,13 @@
   },
   "footer": {
     "tagline": "Taiwanese components. Global bike shops.",
+    "tradeHeading": "Trade",
     "patiscoLink": "Shop on Patisco",
     "writingLink": "Write for Us",
+    "companyHeading": "Company",
     "aboutLink": "About",
     "contactLink": "Contact",
+    "socialHeading": "Social",
     "rights": "© {year} Point Asia Co., Ltd."
   }
 }

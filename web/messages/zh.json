@@ -18,10 +18,13 @@
   },
   "footer": {
     "tagline": "台灣零件。全球車店。",
+    "tradeHeading": "採購",
     "patiscoLink": "在 Patisco 採購",
     "writingLink": "投稿",
+    "companyHeading": "公司",
     "aboutLink": "關於我們",
     "contactLink": "聯絡我們",
+    "socialHeading": "社群",
     "rights": "© {year} 律寶實業有限公司"
   }
 }

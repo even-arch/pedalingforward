@@ -18,10 +18,13 @@
   },
   "footer": {
     "tagline": "Taiwanesische Komponenten. Weltweite Fahrradläden.",
+    "tradeHeading": "Handel",
     "patiscoLink": "Bei Patisco kaufen",
     "writingLink": "Für uns schreiben",
+    "companyHeading": "Unternehmen",
     "aboutLink": "Über uns",
     "contactLink": "Kontakt",
+    "socialHeading": "Social",
     "rights": "© {year} Point Asia Co., Ltd."
   }
 }
