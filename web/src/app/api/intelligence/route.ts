@@ -7,9 +7,9 @@ export async function GET(req: NextRequest) {
 
   try {
     if (section === "trade") {
-      // Monthly trade volume, all countries, HS 8714 (total bicycle parts)
+      const hs = searchParams.get("hs") ?? "8714";
       const metrics = await db.tradeMetric.findMany({
-        where: { hsCode: "8714", flow: "import" },
+        where: { hsCode: hs, flow: "import", partnerCode: "WORLD" },
         select: { reporterCode: true, period: true, value: true },
         orderBy: { period: "asc" },
       });
@@ -37,11 +37,27 @@ export async function GET(req: NextRequest) {
     }
 
     if (section === "overview") {
-      // All three in one call for initial page load
-      const [metrics, events, rules] = await Promise.all([
+      const [importMetrics, exportMetrics, bilateralMetrics, events, rules] = await Promise.all([
+        // Import totals (all HS codes) for import market chart
         db.tradeMetric.findMany({
-          where: { hsCode: "8714", flow: "import" },
-          select: { reporterCode: true, period: true, value: true },
+          where: { flow: "import", partnerCode: "WORLD" },
+          select: { reporterCode: true, hsCode: true, period: true, value: true },
+          orderBy: { period: "asc" },
+        }),
+        // Export totals (all HS codes) for major exporter countries
+        db.tradeMetric.findMany({
+          where: { flow: "export", partnerCode: "WORLD" },
+          select: { reporterCode: true, hsCode: true, period: true, value: true },
+          orderBy: { period: "asc" },
+        }),
+        // DE bilateral: who sells to Germany, by partner country
+        db.tradeMetric.findMany({
+          where: {
+            reporterCode: "DE",
+            flow: "import",
+            NOT: { partnerCode: "WORLD" },
+          },
+          select: { partnerCode: true, hsCode: true, period: true, value: true },
           orderBy: { period: "asc" },
         }),
         db.globalEvent.findMany({
@@ -54,7 +70,7 @@ export async function GET(req: NextRequest) {
           orderBy: { confidence: "desc" },
         }),
       ]);
-      return Response.json({ metrics, events, rules });
+      return Response.json({ importMetrics, exportMetrics, bilateralMetrics, events, rules });
     }
 
     return Response.json({ error: "Unknown section" }, { status: 400 });
