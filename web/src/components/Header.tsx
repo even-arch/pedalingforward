@@ -18,6 +18,7 @@ const NAV = [
   { key: "suppliers",    label: "For Suppliers" },
   { key: "distributors", label: "For Distributors" },
   { key: "how-it-works", label: "How it works" },
+  { key: "intelligence", label: "Market Intel" },
   { key: "about",        label: "About" },
 ];
 
