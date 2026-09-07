@@ -71,16 +71,11 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
   );
 }
 
-const NAV = [
-  { href: "/admin/media", label: "情報室" },
-  { href: "/admin/compose", label: "文章管理" },
-  { href: "/admin/settings", label: "設定" },
-];
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const pathname = usePathname();
+  const isRoot = pathname === "/admin";
 
   useEffect(() => {
     const stored = localStorage.getItem("pf_admin_pw");
@@ -99,54 +94,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!checked) return null;
-
-  if (!token) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  if (!token) return <LoginScreen onLogin={handleLogin} />;
 
   return (
     <AuthCtx.Provider value={{ token, logout }}>
       <html lang="zh-TW">
         <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#0f0e0c", color: "#e8e4df" }}>
-          <div style={{ display: "flex", minHeight: "100vh" }}>
-            {/* Sidebar */}
-            <nav style={{ width: 200, background: "#141210", borderRight: "1px solid #2a2824", padding: "24px 0", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "0 20px 24px", color: "#D5352A", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+
+            {/* Top bar */}
+            <div style={{ background: "#141210", borderBottom: "1px solid #2a2824", padding: "0 32px", display: "flex", alignItems: "center", gap: 20, height: 52, flexShrink: 0 }}>
+              <Link href="/admin" style={{ color: "#D5352A", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", textDecoration: "none" }}>
                 PF Admin
-              </div>
-              {NAV.map(({ href, label }) => {
-                const active = pathname === href || pathname.startsWith(href + "/");
-                return (
+              </Link>
+              {!isRoot && (
+                <>
+                  <span style={{ color: "#2a2824" }}>›</span>
                   <Link
-                    key={href}
-                    href={href}
-                    style={{
-                      display: "block",
-                      padding: "10px 20px",
-                      fontSize: 14,
-                      fontWeight: active ? 600 : 400,
-                      color: active ? "#fff" : "#8a8278",
-                      background: active ? "#1e1c19" : "transparent",
-                      textDecoration: "none",
-                      borderLeft: active ? "3px solid #D5352A" : "3px solid transparent",
-                    }}
+                    href="/admin"
+                    style={{ color: "#8a8278", fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}
                   >
-                    {label}
+                    ← 後台首頁
                   </Link>
-                );
-              })}
-              <div style={{ marginTop: "auto", padding: "16px 20px" }}>
+                </>
+              )}
+              <div style={{ marginLeft: "auto" }}>
                 <button
                   onClick={logout}
-                  style={{ background: "none", border: "1px solid #2a2824", color: "#8a8278", padding: "6px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer" }}
+                  style={{ background: "none", border: "1px solid #2a2824", color: "#8a8278", padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer" }}
                 >
                   登出
                 </button>
               </div>
-            </nav>
+            </div>
 
             {/* Content */}
-            <main style={{ flex: 1, padding: "32px 40px", overflow: "auto" }}>
+            <main style={{ flex: 1, padding: "40px 32px", maxWidth: 1100, width: "100%", boxSizing: "border-box" }}>
               {children}
             </main>
           </div>

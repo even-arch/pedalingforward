@@ -13,21 +13,12 @@ type Settings = {
   aiWritingRules?: string;
 };
 
-type IngestResult = { task: string; saved: number; error?: string };
-type TranslateResult = { ok: boolean; error?: string };
-
 export default function SettingsPage() {
   const { token } = useAuth();
   const [settings, setSettings] = useState<Settings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [ingesting, setIngesting] = useState(false);
-  const [ingestResults, setIngestResults] = useState<IngestResult[] | null>(null);
-  const [ingestError, setIngestError] = useState<string | null>(null);
-  const [translating, setTranslating] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [seedingPages, setSeedingPages] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -64,81 +55,9 @@ export default function SettingsPage() {
   const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSettings((s) => ({ ...s, [key]: e.target.value }));
 
-  async function seedPages() {
-    setSeedingPages(true);
-    try {
-      const res = await fetch("/api/admin/seed-pages", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      const failed = (data.results ?? []).filter((r: { ok: boolean }) => !r.ok);
-      if (failed.length) throw new Error(`${failed.length} 個頁面失敗`);
-      showToast("✅ 五個靜態頁面已寫入 Sanity");
-    } catch (err) {
-      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSeedingPages(false);
-    }
-  }
-
-  async function seedSettings() {
-    setSeeding(true);
-    try {
-      const res = await fetch("/api/admin/seed-settings", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      showToast("✅ 網站文字已寫入（四語）");
-    } catch (err) {
-      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSeeding(false);
-    }
-  }
-
-  async function translateSettings() {
-    setTranslating(true);
-    try {
-      const res = await fetch("/api/admin/translate-settings", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data: TranslateResult = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      showToast("✅ 翻譯完成，已寫入 Sanity");
-    } catch (err) {
-      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setTranslating(false);
-    }
-  }
-
-  async function runIngest() {
-    setIngesting(true);
-    setIngestResults(null);
-    setIngestError(null);
-    try {
-      const res = await fetch("/api/admin/ingest-trade", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      setIngestResults(data.results ?? []);
-      showToast(`✅ 更新完成，共存入 ${data.totalSaved} 筆`);
-    } catch (err) {
-      setIngestError(err instanceof Error ? err.message : String(err));
-      showToast("❌ 更新失敗");
-    } finally {
-      setIngesting(false);
-    }
-  }
-
   const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" };
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#a09890", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" };
+  const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 };
 
   if (loading) return <div style={{ color: "#8a8278" }}>載入中…</div>;
 
@@ -150,21 +69,19 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <h1 style={{ margin: "0 0 32px", fontSize: 22, fontWeight: 700, color: "#fff" }}>設定</h1>
+      <h1 style={{ margin: "0 0 32px", fontSize: 22, fontWeight: 700, color: "#fff" }}>系統設定</h1>
 
       <form onSubmit={save}>
-        {/* Access */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>存取控制</div>
+        <div style={{ marginBottom: 36, paddingBottom: 36, borderBottom: "1px solid #2a2824" }}>
+          <div style={sectionLabel}>存取控制</div>
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>管理員密碼</label>
             <input type="password" value={settings.adminPassword ?? ""} onChange={set("adminPassword")} style={inputStyle} />
           </div>
         </div>
 
-        {/* AI Keys */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>AI API Keys</div>
+        <div style={{ marginBottom: 36, paddingBottom: 36, borderBottom: "1px solid #2a2824" }}>
+          <div style={sectionLabel}>AI API Keys</div>
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Anthropic API Key</label>
             <input type="password" value={settings.anthropicApiKey ?? ""} onChange={set("anthropicApiKey")} style={inputStyle} />
@@ -180,9 +97,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Telegram */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Telegram 通知</div>
+        <div style={{ marginBottom: 36, paddingBottom: 36, borderBottom: "1px solid #2a2824" }}>
+          <div style={sectionLabel}>Telegram 通知</div>
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Bot Token</label>
             <input type="password" value={settings.telegramBotToken ?? ""} onChange={set("telegramBotToken")} style={inputStyle} />
@@ -193,9 +109,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Writing rules */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>AI 寫作規則</div>
+        <div style={{ marginBottom: 36 }}>
+          <div style={sectionLabel}>AI 寫作規則</div>
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>風格指南</label>
             <textarea value={settings.aiWritingRules ?? ""} onChange={set("aiWritingRules")} rows={8}
@@ -205,133 +120,11 @@ export default function SettingsPage() {
 
         <button type="submit" disabled={saving}
           style={{ padding: "10px 28px", background: saving ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
-          {saving ? "儲存中…" : "儲存"}
+          {saving ? "儲存中…" : "儲存設定"}
         </button>
       </form>
 
-      {/* Static pages */}
-      <div style={{ marginTop: 48, marginBottom: 40 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>靜態頁面內容</div>
-        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
-          將車店、供應商、通路商、如何運作、關於我們五個頁面的所有文字（en / zh / ja / de）寫入 Sanity staticPage 文件。之後在 Studio 直接編輯即可，不需改程式碼。
-        </p>
-        <button
-          type="button"
-          onClick={seedPages}
-          disabled={seedingPages}
-          style={{
-            padding: "10px 24px",
-            background: seedingPages ? "#2a2824" : "#D5352A",
-            border: "none",
-            color: seedingPages ? "#5a5650" : "#fff",
-            borderRadius: 4,
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: seedingPages ? "not-allowed" : "pointer",
-          }}
-        >
-          {seedingPages ? "寫入中…" : "初始化靜態頁面（五頁 × 四語）"}
-        </button>
-      </div>
-
-      {/* Site content */}
-      <div style={{ marginTop: 0, marginBottom: 40 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>網站介紹文字</div>
-        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
-          將 Hero 標題、副文字、數字統計、加入區塊等欄位直接寫入 Sanity（en / zh / ja / de 四語）。之後在 Studio 修改英文版後，可用下方「AI 翻譯」按鈕重新產出其他語言。
-        </p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={seedSettings}
-            disabled={seeding}
-            style={{
-              padding: "10px 24px",
-              background: seeding ? "#2a2824" : "#D5352A",
-              border: "none",
-              color: seeding ? "#5a5650" : "#fff",
-              borderRadius: 4,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: seeding ? "not-allowed" : "pointer",
-            }}
-          >
-            {seeding ? "寫入中…" : "初始化網站文字（四語）"}
-          </button>
-          <button
-            type="button"
-            onClick={translateSettings}
-            disabled={translating}
-            style={{
-              padding: "10px 24px",
-              background: translating ? "#2a2824" : "#1e1c19",
-              border: "1px solid #3a3630",
-              color: translating ? "#5a5650" : "#e8e4df",
-              borderRadius: 4,
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: translating ? "not-allowed" : "pointer",
-            }}
-          >
-            {translating ? "翻譯中…" : "AI 重新翻譯（zh / ja / de）"}
-          </button>
-        </div>
-      </div>
-
-      {/* Trade data ingest */}
-      <div style={{ marginTop: 0, marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>貿易資料更新</div>
-        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
-          從 UN Comtrade 補抓最新月份資料（HS 8714 / 8712 / 871430，進口市場 + 出口國 + 雙邊來源）。每月 5 號 02:00 自動執行，也可手動觸發。
-        </p>
-        <button
-          type="button"
-          onClick={runIngest}
-          disabled={ingesting}
-          style={{
-            padding: "10px 24px",
-            background: ingesting ? "#2a2824" : "#1e1c19",
-            border: "1px solid #3a3630",
-            color: ingesting ? "#5a5650" : "#e8e4df",
-            borderRadius: 4,
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: ingesting ? "not-allowed" : "pointer",
-          }}
-        >
-          {ingesting ? "更新中…（可能需要數分鐘）" : "立即從 Comtrade 更新"}
-        </button>
-
-        {ingestError && (
-          <div style={{ marginTop: 12, padding: "10px 14px", background: "#2a1410", border: "1px solid #6a2820", borderRadius: 4, color: "#f08070", fontSize: 12 }}>
-            {ingestError}
-          </div>
-        )}
-
-        {ingestResults && ingestResults.length > 0 && (
-          <div style={{ marginTop: 16, padding: "12px 16px", background: "#141210", border: "1px solid #2a2824", borderRadius: 4 }}>
-            <div style={{ fontSize: 11, color: "#5a5650", fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              更新結果
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "2px 16px", fontSize: 12 }}>
-              {ingestResults.filter((r) => r.saved > 0 || r.error).map((r) => (
-                <>
-                  <span key={`${r.task}-task`} style={{ color: "#a09890", fontFamily: "monospace" }}>{r.task}</span>
-                  <span key={`${r.task}-saved`} style={{ color: r.saved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>
-                    {r.saved > 0 ? `+${r.saved}` : "—"}
-                  </span>
-                  <span key={`${r.task}-err`} style={{ color: "#9a5040", fontSize: 11 }}>{r.error ?? ""}</span>
-                </>
-              ))}
-            </div>
-            {ingestResults.every((r) => r.saved === 0 && !r.error) && (
-              <div style={{ color: "#5a5650", fontSize: 12 }}>全部都是最新的，沒有新資料</div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 0, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
+      <div style={{ marginTop: 48, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
         <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數（優先於此頁設定）</div>
         <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.8 }}>
           {[
