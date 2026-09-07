@@ -14,6 +14,7 @@ type Settings = {
 };
 
 type IngestResult = { task: string; saved: number; error?: string };
+type TranslateResult = { ok: boolean; error?: string };
 
 export default function SettingsPage() {
   const { token } = useAuth();
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [ingesting, setIngesting] = useState(false);
   const [ingestResults, setIngestResults] = useState<IngestResult[] | null>(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -59,6 +61,23 @@ export default function SettingsPage() {
 
   const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSettings((s) => ({ ...s, [key]: e.target.value }));
+
+  async function translateSettings() {
+    setTranslating(true);
+    try {
+      const res = await fetch("/api/admin/translate-settings", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: TranslateResult = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast("✅ 翻譯完成，已寫入 Sanity");
+    } catch (err) {
+      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   async function runIngest() {
     setIngesting(true);
@@ -153,8 +172,33 @@ export default function SettingsPage() {
         </button>
       </form>
 
+      {/* Site content translation */}
+      <div style={{ marginTop: 48, marginBottom: 40 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>網站內容翻譯</div>
+        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
+          將 Sanity siteSettings 的英文欄位（Hero 標題、副文字、數字統計、加入區塊）用 AI 自動翻譯成繁體中文、日文、德文並直接寫回 Sanity。
+        </p>
+        <button
+          type="button"
+          onClick={translateSettings}
+          disabled={translating}
+          style={{
+            padding: "10px 24px",
+            background: translating ? "#2a2824" : "#1e1c19",
+            border: "1px solid #3a3630",
+            color: translating ? "#5a5650" : "#e8e4df",
+            borderRadius: 4,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: translating ? "not-allowed" : "pointer",
+          }}
+        >
+          {translating ? "翻譯中…" : "AI 翻譯網站文字（zh / ja / de）"}
+        </button>
+      </div>
+
       {/* Trade data ingest */}
-      <div style={{ marginTop: 48, marginBottom: 32 }}>
+      <div style={{ marginTop: 0, marginBottom: 32 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>貿易資料更新</div>
         <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
           從 UN Comtrade 補抓最新月份資料（HS 8714 / 8712 / 871430，進口市場 + 出口國 + 雙邊來源）。每月 5 號 02:00 自動執行，也可手動觸發。
