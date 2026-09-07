@@ -52,13 +52,6 @@ const AUDIENCE_OPTIONS = [
   { value: "both",     label: "🌐 兩者（全語言）" },
 ];
 
-const SCORE_COLOR = (s?: number) => {
-  if (s === undefined || s === null) return "#8a8278";
-  if (s >= 7) return "#4caf50";
-  if (s >= 5) return "#f59e0b";
-  return "#f44336";
-};
-
 function fmt(iso?: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("zh-TW", { month: "short", day: "numeric" });
@@ -504,11 +497,6 @@ export default function MediaPage() {
                     style={{ color: "#e8e4df", fontWeight: 600, fontSize: 14, textDecoration: "none", flex: 1 }}>
                     {item.title}
                   </a>
-                  {item.relevanceScore !== undefined && (
-                    <span style={{ color: SCORE_COLOR(item.relevanceScore), fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                      {item.relevanceScore}/10
-                    </span>
-                  )}
                 </div>
 
                 {/* Tags */}
