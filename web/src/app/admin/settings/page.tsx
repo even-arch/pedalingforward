@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [ingestResults, setIngestResults] = useState<IngestResult[] | null>(null);
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -61,6 +62,23 @@ export default function SettingsPage() {
 
   const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSettings((s) => ({ ...s, [key]: e.target.value }));
+
+  async function seedSettings() {
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/admin/seed-settings", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast("✅ 網站文字已寫入（四語）");
+    } catch (err) {
+      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   async function translateSettings() {
     setTranslating(true);
@@ -172,29 +190,48 @@ export default function SettingsPage() {
         </button>
       </form>
 
-      {/* Site content translation */}
+      {/* Site content */}
       <div style={{ marginTop: 48, marginBottom: 40 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>網站內容翻譯</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>網站介紹文字</div>
         <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
-          將 Sanity siteSettings 的英文欄位（Hero 標題、副文字、數字統計、加入區塊）用 AI 自動翻譯成繁體中文、日文、德文並直接寫回 Sanity。
+          將 Hero 標題、副文字、數字統計、加入區塊等欄位直接寫入 Sanity（en / zh / ja / de 四語）。之後在 Studio 修改英文版後，可用下方「AI 翻譯」按鈕重新產出其他語言。
         </p>
-        <button
-          type="button"
-          onClick={translateSettings}
-          disabled={translating}
-          style={{
-            padding: "10px 24px",
-            background: translating ? "#2a2824" : "#1e1c19",
-            border: "1px solid #3a3630",
-            color: translating ? "#5a5650" : "#e8e4df",
-            borderRadius: 4,
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: translating ? "not-allowed" : "pointer",
-          }}
-        >
-          {translating ? "翻譯中…" : "AI 翻譯網站文字（zh / ja / de）"}
-        </button>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={seedSettings}
+            disabled={seeding}
+            style={{
+              padding: "10px 24px",
+              background: seeding ? "#2a2824" : "#D5352A",
+              border: "none",
+              color: seeding ? "#5a5650" : "#fff",
+              borderRadius: 4,
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: seeding ? "not-allowed" : "pointer",
+            }}
+          >
+            {seeding ? "寫入中…" : "初始化網站文字（四語）"}
+          </button>
+          <button
+            type="button"
+            onClick={translateSettings}
+            disabled={translating}
+            style={{
+              padding: "10px 24px",
+              background: translating ? "#2a2824" : "#1e1c19",
+              border: "1px solid #3a3630",
+              color: translating ? "#5a5650" : "#e8e4df",
+              borderRadius: 4,
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: translating ? "not-allowed" : "pointer",
+            }}
+          >
+            {translating ? "翻譯中…" : "AI 重新翻譯（zh / ja / de）"}
+          </button>
+        </div>
       </div>
 
       {/* Trade data ingest */}
