@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/enrich-media",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/admin/ingest-trade",
+      "schedule": "0 2 5 * *"
     }
   ]
 }
