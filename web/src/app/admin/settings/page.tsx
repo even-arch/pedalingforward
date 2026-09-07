@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [ingestError, setIngestError] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedingPages, setSeedingPages] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -62,6 +63,24 @@ export default function SettingsPage() {
 
   const set = (key: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setSettings((s) => ({ ...s, [key]: e.target.value }));
+
+  async function seedPages() {
+    setSeedingPages(true);
+    try {
+      const res = await fetch("/api/admin/seed-pages", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const failed = (data.results ?? []).filter((r: { ok: boolean }) => !r.ok);
+      if (failed.length) throw new Error(`${failed.length} 個頁面失敗`);
+      showToast("✅ 五個靜態頁面已寫入 Sanity");
+    } catch (err) {
+      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSeedingPages(false);
+    }
+  }
 
   async function seedSettings() {
     setSeeding(true);
@@ -190,8 +209,33 @@ export default function SettingsPage() {
         </button>
       </form>
 
-      {/* Site content */}
+      {/* Static pages */}
       <div style={{ marginTop: 48, marginBottom: 40 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>靜態頁面內容</div>
+        <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
+          將車店、供應商、通路商、如何運作、關於我們五個頁面的所有文字（en / zh / ja / de）寫入 Sanity staticPage 文件。之後在 Studio 直接編輯即可，不需改程式碼。
+        </p>
+        <button
+          type="button"
+          onClick={seedPages}
+          disabled={seedingPages}
+          style={{
+            padding: "10px 24px",
+            background: seedingPages ? "#2a2824" : "#D5352A",
+            border: "none",
+            color: seedingPages ? "#5a5650" : "#fff",
+            borderRadius: 4,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: seedingPages ? "not-allowed" : "pointer",
+          }}
+        >
+          {seedingPages ? "寫入中…" : "初始化靜態頁面（五頁 × 四語）"}
+        </button>
+      </div>
+
+      {/* Site content */}
+      <div style={{ marginTop: 0, marginBottom: 40 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>網站介紹文字</div>
         <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.6 }}>
           將 Hero 標題、副文字、數字統計、加入區塊等欄位直接寫入 Sanity（en / zh / ja / de 四語）。之後在 Studio 修改英文版後，可用下方「AI 翻譯」按鈕重新產出其他語言。

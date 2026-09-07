@@ -6,6 +6,7 @@ import {mediaItem} from './documents/mediaItem'
 import {mediaSource} from './documents/mediaSource'
 import {post} from './documents/post'
 import {siteSettings} from './documents/siteSettings'
+import {staticPage} from './documents/staticPage'
 
 export const schemaTypes = [
   // Objects
@@ -20,4 +21,5 @@ export const schemaTypes = [
   mediaSource,
   post,
   siteSettings,
+  staticPage,
 ]
