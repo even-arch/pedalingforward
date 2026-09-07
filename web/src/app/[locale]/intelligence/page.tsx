@@ -80,6 +80,14 @@ export default function IntelligencePage() {
       .map(([period, vals]) => ({ period, ...vals }));
   }, [metrics]);
 
+  const periodRange = useMemo(() => {
+    if (!metrics.length) return "—";
+    const periods = metrics.map((m) => m.period).sort();
+    const first = periods[0].slice(0, 4);
+    const last = periods[periods.length - 1].slice(0, 7);
+    return `${first} – ${last}`;
+  }, [metrics]);
+
   const toggleCountry = (c: string) =>
     setActiveCountries((prev) => {
       const n = new Set(prev);
@@ -118,8 +126,8 @@ export default function IntelligencePage() {
               全球自行車零件貿易情報
             </h1>
             <p className="lead" style={{ color: "rgba(255,255,255,0.75)", maxWidth: "54ch" }}>
-              HS 8714 自行車零件進口量走勢、產業事件與 AI 推論因果規則。
-              資料來源：UN Comtrade、Eurostat，涵蓋 2019–2024 年。
+              自行車零件進出口量走勢、產業事件與 AI 推論因果規則。
+              資料來源：UN Comtrade，持續更新。
             </p>
           </div>
         </div>
@@ -128,7 +136,7 @@ export default function IntelligencePage() {
         <div className="wrap" style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingBottom: 56 }}>
           <div className="stats">
             {[
-              { n: metrics.length.toLocaleString(), k: "筆月度貿易紀錄" },
+              { n: periodRange, k: "資料涵蓋期間" },
               { n: events.length.toLocaleString(), k: "筆全球產業事件" },
               { n: rules.length.toLocaleString(), k: "條 AI 推論因果規則" },
             ].map(({ n, k }) => (
@@ -148,7 +156,7 @@ export default function IntelligencePage() {
             <div style={{ flex: 1 }}>
               <p className="lab" style={{ color: "#6E6760", marginBottom: 8 }}>進口量走勢</p>
               <h2 style={{ fontSize: "clamp(22px, 2.4vw, 32px)", fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
-                HS 8714 自行車零件月度進口額
+                自行車零件月度進口額
               </h2>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
