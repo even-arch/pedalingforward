@@ -1,3 +1,4 @@
+import { waitUntil } from "@vercel/functions";
 import { checkAdminAuth } from "@/lib/admin";
 import { ingestComtradeUpdates } from "@/lib/trade-ingest";
 
@@ -13,14 +14,23 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const results = await ingestComtradeUpdates();
-    const totalSaved = results.reduce((s, r) => s + r.saved, 0);
-    return Response.json({ ok: true, results, totalSaved });
-  } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
-    );
+  const isCron = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
+  if (isCron) {
+    // Cron calls wait for the full result
+    try {
+      const results = await ingestComtradeUpdates();
+      const totalSaved = results.reduce((s, r) => s + r.saved, 0);
+      return Response.json({ ok: true, results, totalSaved });
+    } catch (err) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
   }
+
+  // Manual trigger: return immediately, run in background
+  waitUntil(ingestComtradeUpdates().catch(console.error));
+  return Response.json({ ok: true, background: true, message: "更新已在背景啟動，關掉這個頁面也沒關係" });
 }

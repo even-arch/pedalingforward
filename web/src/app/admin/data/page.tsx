@@ -28,8 +28,12 @@ export default function DataPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      setResults(data.results ?? []);
-      showToast(`✅ 更新完成，共存入 ${data.totalSaved} 筆`);
+      if (data.background) {
+        showToast("✅ 已在背景啟動，可以離開此頁面");
+      } else {
+        setResults(data.results ?? []);
+        showToast(`✅ 更新完成，共存入 ${data.totalSaved} 筆`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       showToast("❌ 更新失敗");
