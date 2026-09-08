@@ -17,9 +17,8 @@ export async function POST(req: Request) {
   const isCron = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
 
   if (isCron) {
-    // Cron calls wait for the full result
     try {
-      const results = await ingestComtradeUpdates();
+      const results = await ingestComtradeUpdates("cron");
       const totalSaved = results.reduce((s, r) => s + r.saved, 0);
       return Response.json({ ok: true, results, totalSaved });
     } catch (err) {
@@ -31,6 +30,6 @@ export async function POST(req: Request) {
   }
 
   // Manual trigger: return immediately, run in background
-  waitUntil(ingestComtradeUpdates().catch(console.error));
+  waitUntil(ingestComtradeUpdates("manual").catch(console.error));
   return Response.json({ ok: true, background: true, message: "更新已在背景啟動，關掉這個頁面也沒關係" });
 }

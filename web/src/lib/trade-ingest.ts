@@ -82,7 +82,11 @@ export type IngestResult = {
   task: string; saved: number; latestPeriod?: string; error?: string;
 };
 
-export async function ingestComtradeUpdates(): Promise<IngestResult[]> {
+export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual"): Promise<IngestResult[]> {
+  const run = await db.tradeIngestRun.create({
+    data: { triggeredBy, status: "running" },
+  });
+
   const results: IngestResult[] = [];
   const upTo = currentYYYYMM();
 
@@ -183,6 +187,19 @@ export async function ingestComtradeUpdates(): Promise<IngestResult[]> {
       }
     }
   }
+
+  const totalSaved = results.reduce((s, r) => s + r.saved, 0);
+  const totalErrors = results.filter((r) => r.error).length;
+  await db.tradeIngestRun.update({
+    where: { id: run.id },
+    data: {
+      status: "done",
+      finishedAt: new Date(),
+      totalSaved,
+      totalErrors,
+      results: results as object[],
+    },
+  });
 
   return results;
 }

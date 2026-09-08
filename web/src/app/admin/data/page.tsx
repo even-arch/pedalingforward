@@ -1,26 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../layout";
 
-type IngestResult = { task: string; saved: number; error?: string };
+type IngestResult = { task: string; saved: number; latestPeriod?: string; error?: string };
+type IngestRun = {
+  id: string;
+  triggeredBy: string;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  totalSaved: number;
+  totalErrors: number;
+  results: IngestResult[] | null;
+};
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function dur(start: string, end: string | null) {
+  if (!end) return "—";
+  const s = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
+}
 
 export default function DataPage() {
   const { token } = useAuth();
   const [ingesting, setIngesting] = useState(false);
-  const [results, setResults] = useState<IngestResult[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [runs, setRuns] = useState<IngestRun[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   }
 
+  const loadRuns = useCallback(async () => {
+    const res = await fetch("/api/admin/ingest-runs", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setRuns(data.runs ?? []);
+    }
+  }, [token]);
+
+  useEffect(() => { loadRuns(); }, [loadRuns]);
+
   async function runIngest() {
     setIngesting(true);
-    setResults(null);
-    setError(null);
     try {
       const res = await fetch("/api/admin/ingest-trade", {
         method: "POST",
@@ -28,70 +57,84 @@ export default function DataPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      if (data.background) {
-        showToast("✅ 已在背景啟動，可以離開此頁面");
-      } else {
-        setResults(data.results ?? []);
-        showToast(`✅ 更新完成，共存入 ${data.totalSaved} 筆`);
-      }
+      showToast(data.background ? "✅ 已在背景啟動，可以離開此頁面" : `✅ 完成，共存入 ${data.totalSaved} 筆`);
+      setTimeout(loadRuns, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      showToast("❌ 更新失敗");
+      showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIngesting(false);
     }
   }
 
+  const statusColor = (s: string) => s === "done" ? "#6aaa70" : s === "error" ? "#f08070" : "#e8c84a";
+  const statusLabel = (s: string) => s === "done" ? "完成" : s === "error" ? "錯誤" : "執行中";
+
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 720 }}>
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, background: "#1e1c19", border: "1px solid #2a2824", borderRadius: 6, padding: "12px 20px", color: "#e8e4df", zIndex: 200, fontSize: 14 }}>
           {toast}
         </div>
       )}
 
-      <h1 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 700, color: "#fff" }}>貿易資料</h1>
-      <p style={{ margin: "0 0 32px", fontSize: 13, color: "#5a5650" }}>UN Comtrade · HS 8714 / 8712 / 871430</p>
-
-      <p style={{ fontSize: 13, color: "#8a8278", marginBottom: 24, lineHeight: 1.65 }}>
-        從 UN Comtrade 補抓最新月份資料，涵蓋進口市場、出口國、雙邊來源三個面向。
-        每月 5 號 02:00 自動執行，也可從這裡手動觸發。
-      </p>
+      <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#fff" }}>貿易資料</h1>
+      <p style={{ margin: "0 0 28px", fontSize: 13, color: "#5a5650" }}>UN Comtrade · HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行</p>
 
       <button
         onClick={runIngest}
         disabled={ingesting}
-        style={{ padding: "11px 28px", background: ingesting ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: ingesting ? "#5a5650" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: ingesting ? "not-allowed" : "pointer" }}
+        style={{ padding: "11px 28px", background: ingesting ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: ingesting ? "#5a5650" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: ingesting ? "not-allowed" : "pointer", marginBottom: 36 }}
       >
-        {ingesting ? "更新中…（可能需要數分鐘）" : "立即從 Comtrade 更新"}
+        {ingesting ? "啟動中…" : "立即從 Comtrade 更新"}
       </button>
 
-      {error && (
-        <div style={{ marginTop: 20, padding: "10px 14px", background: "#2a1410", border: "1px solid #6a2820", borderRadius: 4, color: "#f08070", fontSize: 12 }}>
-          {error}
-        </div>
-      )}
+      {/* Run history */}
+      <div style={{ fontSize: 11, color: "#5a5650", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+        執行歷史（最近 20 次）
+        <button onClick={loadRuns} style={{ marginLeft: 12, padding: "2px 8px", background: "transparent", border: "1px solid #3a3630", borderRadius: 3, color: "#5a5650", fontSize: 10, cursor: "pointer" }}>重新整理</button>
+      </div>
 
-      {results && (
-        <div style={{ marginTop: 24, padding: "16px", background: "#141210", border: "1px solid #2a2824", borderRadius: 4 }}>
-          <div style={{ fontSize: 11, color: "#5a5650", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            更新結果
-          </div>
-          {results.every((r) => r.saved === 0 && !r.error) ? (
-            <div style={{ color: "#5a5650", fontSize: 13 }}>全部都是最新的，沒有新資料。</div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "4px 16px", fontSize: 12 }}>
-              {results.filter((r) => r.saved > 0 || r.error).map((r) => (
-                <>
-                  <span key={`${r.task}-t`} style={{ color: "#a09890", fontFamily: "monospace" }}>{r.task}</span>
-                  <span key={`${r.task}-s`} style={{ color: r.saved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>
-                    {r.saved > 0 ? `+${r.saved}` : "—"}
-                  </span>
-                  <span key={`${r.task}-e`} style={{ color: "#9a5040", fontSize: 11 }}>{r.error ?? ""}</span>
-                </>
-              ))}
+      {runs.length === 0 ? (
+        <div style={{ color: "#3a3630", fontSize: 13 }}>尚無執行記錄</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {runs.map((run) => (
+            <div key={run.id}>
+              <div
+                onClick={() => setExpanded(expanded === run.id ? null : run.id)}
+                style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto auto auto", gap: "0 16px", alignItems: "center", padding: "8px 12px", background: "#141210", borderRadius: 3, cursor: "pointer", userSelect: "none" }}
+              >
+                <span style={{ fontSize: 10, color: statusColor(run.status), fontWeight: 700 }}>{statusLabel(run.status)}</span>
+                <span style={{ fontSize: 12, color: "#a09890", fontFamily: "monospace" }}>{fmt(run.startedAt)}</span>
+                <span style={{ fontSize: 11, color: "#5a5650" }}>{run.triggeredBy}</span>
+                <span style={{ fontSize: 12, color: run.totalSaved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>
+                  {run.totalSaved > 0 ? `+${run.totalSaved}` : "—"}
+                </span>
+                {run.totalErrors > 0 && (
+                  <span style={{ fontSize: 11, color: "#f08070" }}>{run.totalErrors} err</span>
+                )}
+                <span style={{ fontSize: 11, color: "#3a3630" }}>{dur(run.startedAt, run.finishedAt)}</span>
+              </div>
+
+              {expanded === run.id && run.results && (
+                <div style={{ background: "#0e0c0a", borderTop: "1px solid #1e1c19", padding: "10px 12px", marginBottom: 1 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: "3px 16px", fontSize: 11 }}>
+                    {run.results.filter((r) => r.saved > 0 || r.error).map((r, i) => (
+                      <>
+                        <span key={`${i}-t`} style={{ color: "#a09890", fontFamily: "monospace" }}>{r.task}</span>
+                        <span key={`${i}-s`} style={{ color: r.saved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>{r.saved > 0 ? `+${r.saved}` : "—"}</span>
+                        <span key={`${i}-p`} style={{ color: "#5a5650" }}>{r.latestPeriod ?? ""}</span>
+                        <span key={`${i}-e`} style={{ color: "#9a5040" }}>{r.error ?? ""}</span>
+                      </>
+                    ))}
+                    {run.results.every((r) => r.saved === 0 && !r.error) && (
+                      <span style={{ color: "#5a5650", gridColumn: "1/-1" }}>全部已是最新，沒有新資料</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
