@@ -14,6 +14,12 @@ type IngestRun = {
   totalErrors: number;
   results: IngestResult[] | null;
 };
+type DbStats = {
+  total: number;
+  byFlow: { flow: string; _count: { id: number } }[];
+  latestPeriod: string | null;
+  earliestPeriod: string | null;
+};
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -30,6 +36,8 @@ export default function DataPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [runs, setRuns] = useState<IngestRun[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [dbStats, setDbStats] = useState<DbStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -46,7 +54,19 @@ export default function DataPage() {
     }
   }, [token]);
 
-  useEffect(() => { loadRuns(); }, [loadRuns]);
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const res = await fetch("/api/admin/trade-counts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setDbStats(await res.json());
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { loadRuns(); loadStats(); }, [loadRuns, loadStats]);
 
   async function runIngest() {
     setIngesting(true);
@@ -78,7 +98,50 @@ export default function DataPage() {
       )}
 
       <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#fff" }}>貿易資料</h1>
-      <p style={{ margin: "0 0 28px", fontSize: 13, color: "#9a9490" }}>UN Comtrade · HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行</p>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: "#9a9490" }}>UN Comtrade · HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行</p>
+
+      {/* DB 現況：直接查詢資料庫，確認資料真的有存進去 */}
+      <div style={{ background: "#141210", border: "1px solid #2a2824", borderRadius: 6, padding: "16px 20px", marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: "#9a9490", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            資料庫現況（直接查詢）
+          </span>
+          <button
+            onClick={loadStats}
+            style={{ padding: "2px 8px", background: "transparent", border: "1px solid #3a3630", borderRadius: 3, color: "#9a9490", fontSize: 10, cursor: "pointer" }}
+          >
+            重新整理
+          </button>
+        </div>
+        {statsLoading ? (
+          <span style={{ fontSize: 13, color: "#6a6460" }}>查詢中…</span>
+        ) : !dbStats ? (
+          <span style={{ fontSize: 13, color: "#f08070" }}>無法取得資料庫狀態</span>
+        ) : dbStats.total === 0 ? (
+          <span style={{ fontSize: 15, color: "#f08070", fontWeight: 600 }}>⚠ TradeMetric 表格內目前是空的，尚無任何資料</span>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 32px", alignItems: "baseline" }}>
+            <div>
+              <span style={{ fontSize: 24, fontWeight: 700, color: "#6aaa70", fontFamily: "monospace" }}>
+                {dbStats.total.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 12, color: "#9a9490", marginLeft: 6 }}>筆記錄</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#a09890" }}>
+              涵蓋期間：<span style={{ color: "#e8e4df", fontFamily: "monospace" }}>{dbStats.earliestPeriod ?? "—"}</span>
+              {" "}→{" "}
+              <span style={{ color: "#e8e4df", fontFamily: "monospace" }}>{dbStats.latestPeriod ?? "—"}</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#9a9490" }}>
+              {dbStats.byFlow.map((f) => (
+                <span key={f.flow} style={{ marginRight: 12 }}>
+                  {f.flow}：<span style={{ color: "#e8e4df" }}>{f._count.id.toLocaleString()}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={runIngest}
