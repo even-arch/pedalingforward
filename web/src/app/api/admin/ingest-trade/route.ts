@@ -1,6 +1,9 @@
 import { waitUntil } from "@vercel/functions";
 import { checkAdminAuth } from "@/lib/admin";
+import { db } from "@/lib/db";
 import { ingestComtradeUpdates } from "@/lib/trade-ingest";
+
+export const maxDuration = 60;
 
 function verifyCronOrAdmin(req: Request): boolean | Promise<boolean> {
   if (process.env.NODE_ENV !== "production") return true;
@@ -15,6 +18,13 @@ export async function POST(req: Request) {
   }
 
   const isCron = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
+  // Clean up zombie runs (stuck "running" for over 10 minutes)
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  await db.tradeIngestRun.updateMany({
+    where: { status: "running", startedAt: { lt: tenMinutesAgo } },
+    data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
+  }).catch(() => { /* ignore */ });
 
   if (isCron) {
     try {

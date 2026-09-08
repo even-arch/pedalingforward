@@ -70,7 +70,7 @@ async function upsertMetric(args: {
 
 async function fetchComtrade(url: string): Promise<{ ok: boolean; status?: number; data: unknown[] }> {
   const res = await fetch(url, { cache: "no-store" });
-  await new Promise((r) => setTimeout(r, 450));
+  await new Promise((r) => setTimeout(r, 200));
   if (!res.ok) return { ok: false, status: res.status, data: [] };
   const json = await res.json() as { data?: unknown[] };
   return { ok: true, data: json.data ?? [] };
@@ -91,7 +91,7 @@ async function updateProgress(runId: string, callCount: number, totalSaved: numb
   } catch { /* ignore — column may not exist yet */ }
 }
 
-export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 380): Promise<IngestResult[]> {
+export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 60): Promise<IngestResult[]> {
   const run = await db.tradeIngestRun.create({
     data: { triggeredBy, status: "running" },
   });
@@ -130,7 +130,7 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
-          .filter((r) => r.flowCode === "M" && r.partnerCode === 0 && r.partner2Code === 0 && r.primaryValue > 0)
+          .filter((r) => r.flowCode === "M" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0) && r.primaryValue > 0)
           .reduce((s, r) => s + r.primaryValue, 0);
 
         if (total > 0) {
@@ -173,7 +173,7 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
-          .filter((r) => r.flowCode === "X" && r.partnerCode === 0 && r.partner2Code === 0 && r.primaryValue > 0)
+          .filter((r) => r.flowCode === "X" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0) && r.primaryValue > 0)
           .reduce((s, r) => s + r.primaryValue, 0);
 
         if (total > 0) {
