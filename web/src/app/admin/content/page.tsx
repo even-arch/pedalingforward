@@ -69,7 +69,7 @@ export default function ContentPage() {
     }
   }
 
-  const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 };
+  const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#9a9490", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 };
   const desc: React.CSSProperties = { fontSize: 13, color: "#8a8278", marginBottom: 16, lineHeight: 1.65 };
   const section: React.CSSProperties = { marginBottom: 40, paddingBottom: 40, borderBottom: "1px solid #2a2824" };
 
@@ -93,7 +93,7 @@ export default function ContentPage() {
         <button
           onClick={seedPages}
           disabled={seedingPages}
-          style={{ padding: "10px 24px", background: seedingPages ? "#2a2824" : "#D5352A", border: "none", color: seedingPages ? "#5a5650" : "#fff", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: seedingPages ? "not-allowed" : "pointer" }}
+          style={{ padding: "10px 24px", background: seedingPages ? "#2a2824" : "#D5352A", border: "none", color: seedingPages ? "#9a9490" : "#fff", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: seedingPages ? "not-allowed" : "pointer" }}
         >
           {seedingPages ? "寫入中…" : "初始化靜態頁面"}
         </button>
@@ -110,14 +110,14 @@ export default function ContentPage() {
           <button
             onClick={seedSettings}
             disabled={seeding}
-            style={{ padding: "10px 24px", background: seeding ? "#2a2824" : "#D5352A", border: "none", color: seeding ? "#5a5650" : "#fff", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: seeding ? "not-allowed" : "pointer" }}
+            style={{ padding: "10px 24px", background: seeding ? "#2a2824" : "#D5352A", border: "none", color: seeding ? "#9a9490" : "#fff", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: seeding ? "not-allowed" : "pointer" }}
           >
             {seeding ? "寫入中…" : "初始化網站文字"}
           </button>
           <button
             onClick={translateSettings}
             disabled={translating}
-            style={{ padding: "10px 24px", background: translating ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: translating ? "#5a5650" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: translating ? "not-allowed" : "pointer" }}
+            style={{ padding: "10px 24px", background: translating ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: translating ? "#9a9490" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: translating ? "not-allowed" : "pointer" }}
           >
             {translating ? "翻譯中…" : "AI 重新翻譯（zh / ja / de）"}
           </button>
@@ -125,7 +125,7 @@ export default function ContentPage() {
       </div>
 
       <div style={{ padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
-        <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>注意</div>
+        <div style={{ fontSize: 12, color: "#9a9490", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>注意</div>
         <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.8 }}>
           初始化操作使用 <code style={{ color: "#a09890" }}>createIfNotExists</code>，不會覆蓋 Sanity 中已有的內容。若需要強制重置，請先在 Studio 手動刪除對應文件。
         </div>

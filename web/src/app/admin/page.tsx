@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   return (
     <div>
       <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 700, color: "#fff" }}>後台首頁</h1>
-      <p style={{ margin: "0 0 40px", color: "#5a5650", fontSize: 14 }}>選擇一個功能進入操作。</p>
+      <p style={{ margin: "0 0 40px", color: "#9a9490", fontSize: 14 }}>選擇一個功能進入操作。</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
         {WIDGETS.map((w) => (
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
                 </span>
               )}
               {w.external && (
-                <span style={{ marginLeft: "auto", color: "#3a3630", fontSize: 16 }}>↗</span>
+                <span style={{ marginLeft: "auto", color: "#6a6460", fontSize: 16 }}>↗</span>
               )}
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "#8a8278", lineHeight: 1.65 }}>{w.desc}</p>

@@ -79,20 +79,24 @@ async function fetchComtrade(url: string): Promise<{ ok: boolean; status?: numbe
 type ComtradeRow = { flowCode: string; partnerCode: number; partner2Code: number; primaryValue: number };
 
 export type IngestResult = {
-  task: string; saved: number; latestPeriod?: string; error?: string;
+  task: string; saved: number; latestPeriod?: string; error?: string; limitReached?: boolean;
 };
 
-export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual"): Promise<IngestResult[]> {
+export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 380): Promise<IngestResult[]> {
   const run = await db.tradeIngestRun.create({
     data: { triggeredBy, status: "running" },
   });
 
   const results: IngestResult[] = [];
   const upTo = currentYYYYMM();
+  let callCount = 0;
+  let limitReached = false;
 
   // ── 1. Import markets (HS8714 + HS8712) ──────────────────────────────────
-  for (const { code, reporterCode } of IMPORT_MARKETS) {
+  outer1: for (const { code, reporterCode } of IMPORT_MARKETS) {
     for (const hsCode of HS_CODES) {
+      if (callCount >= maxCalls) { limitReached = true; break outer1; }
+
       const latest = await getLatestPeriod(code, hsCode, "import");
       const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
       if (startFrom > upTo) continue;
@@ -103,9 +107,12 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
 
       let saved = 0;
       let error: string | undefined;
+      let taskLimitReached = false;
       for (const period of months) {
+        if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
         const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
         const { ok, status, data } = await fetchComtrade(url);
+        callCount++;
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
@@ -118,13 +125,17 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
         }
       }
       const newLatest = await getLatestPeriod(code, hsCode, "import");
-      results.push({ task: `${code} ${hsCode} import`, saved, latestPeriod: newLatest ?? undefined, error });
+      results.push({ task: `${code} ${hsCode} import`, saved, latestPeriod: newLatest ?? undefined, error, ...(taskLimitReached && { limitReached: true }) });
+      if (limitReached) break outer1;
     }
   }
 
   // ── 2. Export totals (major exporters) ───────────────────────────────────
-  for (const { code, reporterCode } of EXPORT_ORIGINS) {
+  if (!limitReached) {
+  outer2: for (const { code, reporterCode } of EXPORT_ORIGINS) {
     for (const hsCode of HS_CODES) {
+      if (callCount >= maxCalls) { limitReached = true; break outer2; }
+
       const latest = await getLatestPeriod(code, hsCode, "export");
       const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
       if (startFrom > upTo) continue;
@@ -135,9 +146,12 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
 
       let saved = 0;
       let error: string | undefined;
+      let taskLimitReached = false;
       for (const period of months) {
+        if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
         const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
         const { ok, status, data } = await fetchComtrade(url);
+        callCount++;
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
@@ -149,15 +163,20 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
           saved++;
         }
       }
-      results.push({ task: `${code} ${hsCode} export`, saved, error });
+      results.push({ task: `${code} ${hsCode} export`, saved, error, ...(taskLimitReached && { limitReached: true }) });
+      if (limitReached) break outer2;
     }
+  }
   }
 
   // ── 3. Bilateral breakdown for all import markets ─────────────────────────
-  for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
+  if (!limitReached) {
+  outer3: for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
     for (const { code: partCode, partnerCode } of BILATERAL_PARTNERS) {
       if (marketCode === partCode) continue; // skip self-reference (e.g. JP←JP)
       for (const hsCode of HS_CODES) {
+        if (callCount >= maxCalls) { limitReached = true; break outer3; }
+
         const dbPartnerCode = `PARTNER_${partCode}`;
         const latest = await getLatestPeriod(marketCode, hsCode, "import", dbPartnerCode);
         const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
@@ -169,9 +188,12 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
 
         let saved = 0;
         let error: string | undefined;
+        let taskLimitReached = false;
         for (const period of months) {
+          if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
           const url = `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
           const { ok, status, data } = await fetchComtrade(url);
+          callCount++;
           if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
           const total = (data as ComtradeRow[])
@@ -183,9 +205,11 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
             saved++;
           }
         }
-        results.push({ task: `${marketCode}←${partCode} ${hsCode}`, saved, error });
+        results.push({ task: `${marketCode}←${partCode} ${hsCode}`, saved, error, ...(taskLimitReached && { limitReached: true }) });
+        if (limitReached) break outer3;
       }
     }
+  }
   }
 
   const totalSaved = results.reduce((s, r) => s + r.saved, 0);
@@ -197,6 +221,7 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
       finishedAt: new Date(),
       totalSaved,
       totalErrors,
+      callsUsed: callCount,
       results: results as object[],
     },
   });

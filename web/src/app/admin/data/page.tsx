@@ -78,24 +78,24 @@ export default function DataPage() {
       )}
 
       <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, color: "#fff" }}>貿易資料</h1>
-      <p style={{ margin: "0 0 28px", fontSize: 13, color: "#5a5650" }}>UN Comtrade · HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行</p>
+      <p style={{ margin: "0 0 28px", fontSize: 13, color: "#9a9490" }}>UN Comtrade · HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行</p>
 
       <button
         onClick={runIngest}
         disabled={ingesting}
-        style={{ padding: "11px 28px", background: ingesting ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: ingesting ? "#5a5650" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: ingesting ? "not-allowed" : "pointer", marginBottom: 36 }}
+        style={{ padding: "11px 28px", background: ingesting ? "#2a2824" : "#1e1c19", border: "1px solid #3a3630", color: ingesting ? "#9a9490" : "#e8e4df", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: ingesting ? "not-allowed" : "pointer", marginBottom: 36 }}
       >
         {ingesting ? "啟動中…" : "立即從 Comtrade 更新"}
       </button>
 
       {/* Run history */}
-      <div style={{ fontSize: 11, color: "#5a5650", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: "#9a9490", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
         執行歷史（最近 20 次）
-        <button onClick={loadRuns} style={{ marginLeft: 12, padding: "2px 8px", background: "transparent", border: "1px solid #3a3630", borderRadius: 3, color: "#5a5650", fontSize: 10, cursor: "pointer" }}>重新整理</button>
+        <button onClick={loadRuns} style={{ marginLeft: 12, padding: "2px 8px", background: "transparent", border: "1px solid #3a3630", borderRadius: 3, color: "#9a9490", fontSize: 10, cursor: "pointer" }}>重新整理</button>
       </div>
 
       {runs.length === 0 ? (
-        <div style={{ color: "#3a3630", fontSize: 13 }}>尚無執行記錄</div>
+        <div style={{ color: "#6a6460", fontSize: 13 }}>尚無執行記錄</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
           {runs.map((run) => (
@@ -106,14 +106,14 @@ export default function DataPage() {
               >
                 <span style={{ fontSize: 10, color: statusColor(run.status), fontWeight: 700 }}>{statusLabel(run.status)}</span>
                 <span style={{ fontSize: 12, color: "#a09890", fontFamily: "monospace" }}>{fmt(run.startedAt)}</span>
-                <span style={{ fontSize: 11, color: "#5a5650" }}>{run.triggeredBy}</span>
-                <span style={{ fontSize: 12, color: run.totalSaved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>
+                <span style={{ fontSize: 11, color: "#9a9490" }}>{run.triggeredBy}</span>
+                <span style={{ fontSize: 12, color: run.totalSaved > 0 ? "#6aaa70" : "#9a9490", textAlign: "right" }}>
                   {run.totalSaved > 0 ? `+${run.totalSaved}` : "—"}
                 </span>
                 {run.totalErrors > 0 && (
                   <span style={{ fontSize: 11, color: "#f08070" }}>{run.totalErrors} err</span>
                 )}
-                <span style={{ fontSize: 11, color: "#3a3630" }}>{dur(run.startedAt, run.finishedAt)}</span>
+                <span style={{ fontSize: 11, color: "#6a6460" }}>{dur(run.startedAt, run.finishedAt)}</span>
               </div>
 
               {expanded === run.id && run.results && (
@@ -122,13 +122,13 @@ export default function DataPage() {
                     {run.results.filter((r) => r.saved > 0 || r.error).map((r, i) => (
                       <>
                         <span key={`${i}-t`} style={{ color: "#a09890", fontFamily: "monospace" }}>{r.task}</span>
-                        <span key={`${i}-s`} style={{ color: r.saved > 0 ? "#6aaa70" : "#5a5650", textAlign: "right" }}>{r.saved > 0 ? `+${r.saved}` : "—"}</span>
-                        <span key={`${i}-p`} style={{ color: "#5a5650" }}>{r.latestPeriod ?? ""}</span>
+                        <span key={`${i}-s`} style={{ color: r.saved > 0 ? "#6aaa70" : "#9a9490", textAlign: "right" }}>{r.saved > 0 ? `+${r.saved}` : "—"}</span>
+                        <span key={`${i}-p`} style={{ color: "#9a9490" }}>{r.latestPeriod ?? ""}</span>
                         <span key={`${i}-e`} style={{ color: "#9a5040" }}>{r.error ?? ""}</span>
                       </>
                     ))}
                     {run.results.every((r) => r.saved === 0 && !r.error) && (
-                      <span style={{ color: "#5a5650", gridColumn: "1/-1" }}>全部已是最新，沒有新資料</span>
+                      <span style={{ color: "#9a9490", gridColumn: "1/-1" }}>全部已是最新，沒有新資料</span>
                     )}
                   </div>
                 </div>

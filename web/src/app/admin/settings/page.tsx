@@ -57,7 +57,7 @@ export default function SettingsPage() {
 
   const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "10px 12px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" };
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#a09890", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" };
-  const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#5a5650", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 };
+  const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#9a9490", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 };
 
   if (loading) return <div style={{ color: "#8a8278" }}>載入中…</div>;
 
@@ -93,7 +93,7 @@ export default function SettingsPage() {
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Firecrawl API Key</label>
             <input type="password" value={settings.firecrawlApiKey ?? ""} onChange={set("firecrawlApiKey")} style={inputStyle} />
-            <div style={{ fontSize: 11, color: "#5a5650", marginTop: 4 }}>用來抓取原文全文。沒有也行，會改用 RSS 摘要。</div>
+            <div style={{ fontSize: 11, color: "#9a9490", marginTop: 4 }}>用來抓取原文全文。沒有也行，會改用 RSS 摘要。</div>
           </div>
         </div>
 
@@ -125,7 +125,7 @@ export default function SettingsPage() {
       </form>
 
       <div style={{ marginTop: 48, padding: 16, background: "#141210", border: "1px solid #2a2824", borderRadius: 6 }}>
-        <div style={{ fontSize: 12, color: "#5a5650", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數（優先於此頁設定）</div>
+        <div style={{ fontSize: 12, color: "#9a9490", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Vercel 環境變數（優先於此頁設定）</div>
         <div style={{ fontSize: 12, color: "#8a8278", lineHeight: 1.8 }}>
           {[
             ["SANITY_WRITE_TOKEN", "必填"],
