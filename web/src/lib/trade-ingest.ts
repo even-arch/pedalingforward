@@ -82,6 +82,15 @@ export type IngestResult = {
   task: string; saved: number; latestPeriod?: string; error?: string; limitReached?: boolean;
 };
 
+async function updateProgress(runId: string, callCount: number, totalSaved: number) {
+  try {
+    await db.tradeIngestRun.update({
+      where: { id: runId },
+      data: { callsUsed: callCount, totalSaved },
+    });
+  } catch { /* ignore — column may not exist yet */ }
+}
+
 export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 380): Promise<IngestResult[]> {
   const run = await db.tradeIngestRun.create({
     data: { triggeredBy, status: "running" },
@@ -91,6 +100,7 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
   const upTo = currentYYYYMM();
   let callCount = 0;
   let limitReached = false;
+  let lastProgressUpdate = 0;
 
   // ── 1. Import markets (HS8714 + HS8712) ──────────────────────────────────
   outer1: for (const { code, reporterCode } of IMPORT_MARKETS) {
@@ -113,6 +123,10 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
         const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
         const { ok, status, data } = await fetchComtrade(url);
         callCount++;
+        if (callCount - lastProgressUpdate >= 30) {
+          lastProgressUpdate = callCount;
+          await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
+        }
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
@@ -152,6 +166,10 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
         const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
         const { ok, status, data } = await fetchComtrade(url);
         callCount++;
+        if (callCount - lastProgressUpdate >= 30) {
+          lastProgressUpdate = callCount;
+          await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
+        }
         if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
         const total = (data as ComtradeRow[])
@@ -194,6 +212,10 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
           const url = `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
           const { ok, status, data } = await fetchComtrade(url);
           callCount++;
+          if (callCount - lastProgressUpdate >= 30) {
+            lastProgressUpdate = callCount;
+            await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
+          }
           if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
           const total = (data as ComtradeRow[])

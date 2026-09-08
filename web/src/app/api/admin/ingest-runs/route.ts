@@ -17,6 +17,7 @@ export async function GET(req: Request) {
       status: true,
       totalSaved: true,
       totalErrors: true,
+      callsUsed: true,
       results: true,
     },
   });

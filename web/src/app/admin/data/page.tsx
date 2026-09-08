@@ -12,6 +12,7 @@ type IngestRun = {
   status: string;
   totalSaved: number;
   totalErrors: number;
+  callsUsed: number;
   results: IngestResult[] | null;
 };
 type DbStats = {
@@ -68,6 +69,14 @@ export default function DataPage() {
 
   useEffect(() => { loadRuns(); loadStats(); }, [loadRuns, loadStats]);
 
+  // Auto-poll every 5s when any run is "running"
+  useEffect(() => {
+    const hasRunning = runs.some((r) => r.status === "running");
+    if (!hasRunning) return;
+    const id = setInterval(() => { loadRuns(); loadStats(); }, 5000);
+    return () => clearInterval(id);
+  }, [runs, loadRuns, loadStats]);
+
   async function runIngest() {
     setIngesting(true);
     try {
@@ -87,10 +96,11 @@ export default function DataPage() {
   }
 
   const statusColor = (s: string) => s === "done" ? "#6aaa70" : s === "error" ? "#f08070" : "#e8c84a";
-  const statusLabel = (s: string) => s === "done" ? "完成" : s === "error" ? "錯誤" : "執行中";
+  const statusLabel = (s: string) => s === "done" ? "完成" : s === "error" ? "錯誤" : "執行中 ●";
 
   return (
     <div style={{ maxWidth: 720 }}>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
       {toast && (
         <div style={{ position: "fixed", bottom: 24, right: 24, background: "#1e1c19", border: "1px solid #2a2824", borderRadius: 6, padding: "12px 20px", color: "#e8e4df", zIndex: 200, fontSize: 14 }}>
           {toast}
@@ -165,17 +175,20 @@ export default function DataPage() {
             <div key={run.id}>
               <div
                 onClick={() => setExpanded(expanded === run.id ? null : run.id)}
-                style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto auto auto", gap: "0 16px", alignItems: "center", padding: "8px 12px", background: "#141210", borderRadius: 3, cursor: "pointer", userSelect: "none" }}
+                style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto auto auto auto", gap: "0 14px", alignItems: "center", padding: "8px 12px", background: "#141210", borderRadius: 3, cursor: "pointer", userSelect: "none" }}
               >
-                <span style={{ fontSize: 10, color: statusColor(run.status), fontWeight: 700 }}>{statusLabel(run.status)}</span>
+                <span style={{ fontSize: 10, color: statusColor(run.status), fontWeight: 700, animation: run.status === "running" ? "pulse 1.2s ease-in-out infinite" : undefined }}>{statusLabel(run.status)}</span>
                 <span style={{ fontSize: 12, color: "#a09890", fontFamily: "monospace" }}>{fmt(run.startedAt)}</span>
                 <span style={{ fontSize: 11, color: "#9a9490" }}>{run.triggeredBy}</span>
+                {run.callsUsed > 0 ? (
+                  <span style={{ fontSize: 11, color: "#9a9490", fontFamily: "monospace" }}>{run.callsUsed} calls</span>
+                ) : <span />}
                 <span style={{ fontSize: 12, color: run.totalSaved > 0 ? "#6aaa70" : "#9a9490", textAlign: "right" }}>
                   {run.totalSaved > 0 ? `+${run.totalSaved}` : "—"}
                 </span>
-                {run.totalErrors > 0 && (
+                {run.totalErrors > 0 ? (
                   <span style={{ fontSize: 11, color: "#f08070" }}>{run.totalErrors} err</span>
-                )}
+                ) : <span />}
                 <span style={{ fontSize: 11, color: "#6a6460" }}>{dur(run.startedAt, run.finishedAt)}</span>
               </div>
 
