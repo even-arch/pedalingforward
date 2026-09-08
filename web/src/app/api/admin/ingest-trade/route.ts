@@ -3,7 +3,7 @@ import { checkAdminAuth } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { ingestComtradeUpdates } from "@/lib/trade-ingest";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function verifyCronOrAdmin(req: Request): boolean | Promise<boolean> {
   if (process.env.NODE_ENV !== "production") return true;

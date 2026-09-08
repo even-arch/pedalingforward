@@ -91,7 +91,7 @@ async function updateProgress(runId: string, callCount: number, totalSaved: numb
   } catch { /* ignore — column may not exist yet */ }
 }
 
-export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 60): Promise<IngestResult[]> {
+export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 30): Promise<IngestResult[]> {
   const run = await db.tradeIngestRun.create({
     data: { triggeredBy, status: "running" },
   });
