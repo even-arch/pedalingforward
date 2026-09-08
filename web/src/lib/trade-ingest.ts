@@ -214,17 +214,33 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
 
   const totalSaved = results.reduce((s, r) => s + r.saved, 0);
   const totalErrors = results.filter((r) => r.error).length;
-  await db.tradeIngestRun.update({
-    where: { id: run.id },
-    data: {
-      status: "done",
-      finishedAt: new Date(),
-      totalSaved,
-      totalErrors,
-      callsUsed: callCount,
-      results: results as object[],
-    },
-  });
+
+  // callsUsed is saved separately to avoid failing if the column isn't in the DB yet
+  try {
+    await db.tradeIngestRun.update({
+      where: { id: run.id },
+      data: {
+        status: "done",
+        finishedAt: new Date(),
+        totalSaved,
+        totalErrors,
+        callsUsed: callCount,
+        results: results as object[],
+      },
+    });
+  } catch {
+    // Fallback without callsUsed if the column doesn't exist yet
+    await db.tradeIngestRun.update({
+      where: { id: run.id },
+      data: {
+        status: "done",
+        finishedAt: new Date(),
+        totalSaved,
+        totalErrors,
+        results: results as object[],
+      },
+    });
+  }
 
   return results;
 }

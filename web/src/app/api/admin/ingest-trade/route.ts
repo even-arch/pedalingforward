@@ -30,6 +30,10 @@ export async function POST(req: Request) {
   }
 
   // Manual trigger: return immediately, run in background
-  waitUntil(ingestComtradeUpdates("manual").catch(console.error));
+  waitUntil(
+    ingestComtradeUpdates("manual").catch((err) => {
+      console.error("[ingest-trade] background task failed:", err);
+    })
+  );
   return Response.json({ ok: true, background: true, message: "更新已在背景啟動，關掉這個頁面也沒關係" });
 }
