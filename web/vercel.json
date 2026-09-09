@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/admin/ingest-trade",
-      "schedule": "0 2 5 * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }

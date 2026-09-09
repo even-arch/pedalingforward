@@ -40,8 +40,9 @@ export async function POST(req: Request) {
   }
 
   // Manual trigger: return immediately, run in background
+  // 400 calls ≈ most of the Comtrade free-tier daily quota (500/day)
   waitUntil(
-    ingestComtradeUpdates("manual").catch((err) => {
+    ingestComtradeUpdates("manual", 400).catch((err) => {
       console.error("[ingest-trade] background task failed:", err);
     })
   );

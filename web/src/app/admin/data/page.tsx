@@ -54,8 +54,9 @@ export default function DataPage() {
   const [tradeLoading, setTradeLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 4000); }
+  function showToast(msg: string, ms = 4000) { setToast(msg); setTimeout(() => setToast(null), ms); }
 
   const loadRuns = useCallback(async () => {
     const res = await fetch("/api/admin/ingest-runs", { headers: { Authorization: `Bearer ${token}` } });
@@ -91,31 +92,41 @@ export default function DataPage() {
     } finally { setTradeLoading(false); }
   }
 
-  async function runEventsIngest(backfill = false) {
+  async function runEventsIngest(mode: "recent" | "backfill" | "retag" = "recent") {
     setEventsLoading(true);
     try {
+      const body = mode === "backfill" ? { backfill: true } : mode === "retag" ? { retag: true } : {};
       const res = await fetch("/api/admin/ingest-events", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({ backfill }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      showToast(backfill ? "✅ GDELT 回溯更新已啟動（2019→now）" : "✅ GDELT 最近 90 天事件已啟動");
-      setTimeout(loadStats, 8000);
-    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+      if (mode === "retag") {
+        showToast(`✅ ${data.message}`);
+        setTimeout(loadStats, 1000);
+      } else {
+        showToast(mode === "backfill" ? "✅ GDELT 回溯更新已啟動（2019→now）" : "✅ GDELT 最近 90 天事件已啟動");
+        setTimeout(loadStats, 8000);
+      }
+    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`, 8000);
     } finally { setEventsLoading(false); }
   }
 
   async function runRuleGen() {
     setRulesLoading(true);
+    setRulesError(null);
     try {
       const res = await fetch("/api/admin/generate-rules", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
       showToast(`✅ AI 生成 ${data.generated} 條因果規則`);
       setTimeout(loadStats, 2000);
-    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRulesError(msg);
+      showToast(`❌ ${msg}`, 8000);
     } finally { setRulesLoading(false); }
   }
 
@@ -232,17 +243,21 @@ export default function DataPage() {
       {/* ── 2. GDELT Events ── */}
       <div style={cardStyle}>
         <SectionHeader title="② GDELT 全球產業事件" sub="自動搜尋自行車貿易相關新聞 · 5 種查詢關鍵字 · 免費公開 API" />
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => runEventsIngest(false)} disabled={eventsLoading} style={btnStyle(eventsLoading)}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={() => runEventsIngest("recent")} disabled={eventsLoading} style={btnStyle(eventsLoading)}>
             {eventsLoading ? "更新中…" : "更新最近 90 天"}
           </button>
-          <button onClick={() => runEventsIngest(true)} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
+          <button onClick={() => runEventsIngest("backfill")} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
             回溯補齊（2019→now）
+          </button>
+          <button onClick={() => runEventsIngest("retag")} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
+            修復國家標籤
           </button>
         </div>
         <div style={{ marginTop: 14, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
           查詢範圍：bicycle tariff · supply chain · demand · Taiwan export · ebike regulation<br />
-          資料存入 GlobalEvent 表，去重機制以 URL 為依據。
+          資料存入 GlobalEvent 表，去重機制以 URL 為依據。<br />
+          「修復國家標籤」：從現有事件標題重新推斷提及的國家（修正舊資料只記錄發布國的問題）。
         </div>
       </div>
 
@@ -252,6 +267,11 @@ export default function DataPage() {
         <button onClick={runRuleGen} disabled={rulesLoading} style={btnStyle(rulesLoading)}>
           {rulesLoading ? "AI 分析中…" : "重新生成因果規則"}
         </button>
+        {rulesError && (
+          <div style={{ marginTop: 12, padding: "10px 14px", background: "#1a0c0a", border: "1px solid #5a2820", borderRadius: 4, fontSize: 12, color: "#f08070", lineHeight: 1.6, wordBreak: "break-word" }}>
+            <strong>錯誤：</strong>{rulesError}
+          </div>
+        )}
         <div style={{ marginTop: 14, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
           每次執行會清除未驗證規則，重新從目前資料生成 6–10 條。<br />
           已手動標記「已驗證」的規則不會被清除。需要先設定 Anthropic API Key（Admin → 系統設定）。

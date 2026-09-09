@@ -18,6 +18,28 @@ const COUNTRY_MAP: Record<string, string> = {
   FR: "FRA", BE: "BEL", CH: "CHE", AU: "AUS", CA: "CAN",
 };
 
+// Extract countries mentioned in article title (supplements sourcecountry which is publishing country)
+const TITLE_KEYWORDS: [string, RegExp][] = [
+  ["USA", /\b(United States|American|U\.S\.|US |Biden|Trump|Washington)\b/i],
+  ["DEU", /\b(German[y]?|Berlin)\b/i],
+  ["JPN", /\b(Japan(ese)?|Tokyo)\b/i],
+  ["TWN", /\b(Taiwan(ese)?)\b/i],
+  ["CHN", /\b(China|Chinese|Beijing)\b/i],
+  ["NLD", /\b(Netherlands|Dutch|Holland)\b/i],
+  ["GBR", /\b(British|Britain|UK |England)\b/i],
+  ["ITA", /\b(Italian|Italy)\b/i],
+  ["VNM", /\b(Vietnam(ese)?)\b/i],
+  ["POL", /\b(Poland|Polish)\b/i],
+];
+
+function countriesFromTitle(title: string): string[] {
+  const found: string[] = [];
+  for (const [code, re] of TITLE_KEYWORDS) {
+    if (re.test(title)) found.push(code);
+  }
+  return found;
+}
+
 type GdeltArticle = {
   url?: string; title?: string; seendate?: string;
   sourcecountry?: string; tone?: string | number; domain?: string;
@@ -70,7 +92,9 @@ export async function ingestGdeltEvents(
         const eventDate = art.seendate ? parseGdeltDate(art.seendate) : null;
         if (!eventDate) continue;
 
-        const countryCode = art.sourcecountry ? (COUNTRY_MAP[art.sourcecountry] ?? art.sourcecountry) : null;
+        const sourceCountry = art.sourcecountry ? (COUNTRY_MAP[art.sourcecountry] ?? art.sourcecountry) : null;
+        const titleCountries = countriesFromTitle(art.title);
+        const allCountries = [...new Set([...(sourceCountry ? [sourceCountry] : []), ...titleCountries])];
         const tone = art.tone !== undefined && art.tone !== null ? parseFloat(String(art.tone)) : null;
 
         await db.globalEvent.create({
@@ -80,7 +104,7 @@ export async function ingestGdeltEvents(
             title: art.title.slice(0, 500),
             url: art.url,
             tone: isNaN(tone as number) ? null : tone,
-            countries: countryCode ? [countryCode] : [],
+            countries: allCountries,
             industries: ["bicycle"],
             tags,
           },
@@ -94,4 +118,21 @@ export async function ingestGdeltEvents(
   }
 
   return results;
+}
+
+// Re-tag existing events that only had a sourcecountry — add keyword-based countries from title
+export async function retagEventCountries(): Promise<{ updated: number }> {
+  const events = await db.globalEvent.findMany({
+    select: { id: true, title: true, countries: true },
+  });
+  let updated = 0;
+  for (const ev of events) {
+    const titleCountries = countriesFromTitle(ev.title);
+    const merged = [...new Set([...ev.countries, ...titleCountries])];
+    if (merged.length !== ev.countries.length || merged.some((c) => !ev.countries.includes(c))) {
+      await db.globalEvent.update({ where: { id: ev.id }, data: { countries: merged } });
+      updated++;
+    }
+  }
+  return { updated };
 }
