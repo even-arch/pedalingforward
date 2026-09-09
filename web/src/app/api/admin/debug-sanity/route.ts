@@ -1,12 +1,8 @@
-import { checkAdminAuth } from "@/lib/admin";
 import { sanityFetch } from "@/sanity/lib/live";
 import { staticPageQuery } from "@/sanity/queries/staticPage";
 import { writeClient } from "@/sanity/lib/write-client";
 
-export async function GET(req: Request) {
-  if (!(await checkAdminAuth(req))) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET() {
 
   // Test 1: sanityFetch (the live client used by pages)
   let liveResult: unknown = null;
