@@ -106,6 +106,12 @@ model SignalAlert {
   @@index([status])
 }
 
+model SystemMeta {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
 model MediaGenerationJob {
   id            String    @id @default(cuid())
   itemIds       String[]

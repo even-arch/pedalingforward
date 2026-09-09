@@ -117,6 +117,12 @@ export async function ingestGdeltEvents(
     }
   }
 
+  await db.systemMeta.upsert({
+    where: { key: "gdelt_last_ingest" },
+    update: { value: new Date().toISOString() },
+    create: { key: "gdelt_last_ingest", value: new Date().toISOString() },
+  }).catch(() => { /* non-fatal */ });
+
   return results;
 }
 

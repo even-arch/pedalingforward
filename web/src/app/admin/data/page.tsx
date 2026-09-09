@@ -11,8 +11,8 @@ type IngestRun = {
 };
 type DbStats = {
   trade:  { total: number; byFlow: { flow: string; _count: { id: number } }[]; latestPeriod?: string; earliestPeriod?: string };
-  events: { total: number; latestDate?: string };
-  rules:  { total: number; verified: number };
+  events: { total: number; latestDate?: string; lastIngestAt?: string | null };
+  rules:  { total: number; verified: number; lastGeneratedAt?: string | null };
 };
 
 function fmt(iso: string) {
@@ -34,10 +34,20 @@ function StatCard({ label, value, sub, color = "#6aaa70" }: { label: string; val
   );
 }
 
-function SectionHeader({ title, sub }: { title: string; sub: string }) {
+function SectionHeader({ title, sub, lastAt }: { title: string; sub: string; lastAt?: string | null }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <h2 style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, color: "#e8e4df" }}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+        <h2 style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, color: "#e8e4df" }}>{title}</h2>
+        {lastAt && (
+          <span style={{ fontSize: 11, color: "#6aaa70", fontFamily: "monospace" }}>
+            最後抓取：{new Date(lastAt).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+        {lastAt === null && (
+          <span style={{ fontSize: 11, color: "#e8c84a", fontFamily: "monospace" }}>尚未執行</span>
+        )}
+      </div>
       <p style={{ margin: 0, fontSize: 12, color: "#9a9490" }}>{sub}</p>
     </div>
   );
@@ -190,7 +200,11 @@ export default function DataPage() {
 
       {/* ── 1. UN Comtrade ── */}
       <div style={cardStyle}>
-        <SectionHeader title="① UN Comtrade 貿易量" sub="HS 8714 / 8712 / 871430 / 871160 · 每月 5 號 02:00 自動執行" />
+        <SectionHeader
+          title="① UN Comtrade 貿易量"
+          sub="HS 8714 / 8712 / 871430 / 871160 · 每天 02:00 自動執行"
+          lastAt={runs.find((r) => r.status === "done")?.finishedAt ?? null}
+        />
         <button onClick={runTradeIngest} disabled={tradeLoading} style={btnStyle(tradeLoading)}>
           {tradeLoading ? "啟動中…" : "立即從 Comtrade 更新"}
         </button>
@@ -242,7 +256,11 @@ export default function DataPage() {
 
       {/* ── 2. GDELT Events ── */}
       <div style={cardStyle}>
-        <SectionHeader title="② GDELT 全球產業事件" sub="自動搜尋自行車貿易相關新聞 · 5 種查詢關鍵字 · 免費公開 API" />
+        <SectionHeader
+          title="② GDELT 全球產業事件"
+          sub="自動搜尋自行車貿易相關新聞 · 5 種查詢關鍵字 · 免費公開 API"
+          lastAt={dbStats?.events.lastIngestAt}
+        />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button onClick={() => runEventsIngest("recent")} disabled={eventsLoading} style={btnStyle(eventsLoading)}>
             {eventsLoading ? "更新中…" : "更新最近 90 天"}
@@ -263,7 +281,11 @@ export default function DataPage() {
 
       {/* ── 3. AI Causal Rules ── */}
       <div style={cardStyle}>
-        <SectionHeader title="③ AI 因果規則分析" sub="讀取 Comtrade + GDELT 資料，用 Claude Haiku 生成因果規則" />
+        <SectionHeader
+          title="③ AI 因果規則分析"
+          sub="讀取 Comtrade + GDELT 資料，用 Claude Haiku 生成因果規則"
+          lastAt={dbStats?.rules.lastGeneratedAt}
+        />
         <button onClick={runRuleGen} disabled={rulesLoading} style={btnStyle(rulesLoading)}>
           {rulesLoading ? "AI 分析中…" : "重新生成因果規則"}
         </button>

@@ -154,5 +154,11 @@ Focus on patterns visible in the data. Confidence should reflect data support (0
     generated++;
   }
 
+  await db.systemMeta.upsert({
+    where: { key: "rules_last_generated" },
+    update: { value: new Date().toISOString() },
+    create: { key: "rules_last_generated", value: new Date().toISOString() },
+  }).catch(() => { /* non-fatal */ });
+
   return { generated };
 }

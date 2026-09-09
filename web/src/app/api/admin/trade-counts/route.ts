@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     tradeTotal, tradeByFlow, tradeLatest, tradeEarliest,
     eventTotal, eventLatest,
     ruleTotal, ruleVerified,
+    gdeltMeta, rulesMeta,
   ] = await Promise.all([
     db.tradeMetric.count(),
     db.tradeMetric.groupBy({ by: ["flow"], _count: { id: true } }),
@@ -19,6 +20,8 @@ export async function GET(req: Request) {
     db.globalEvent.findFirst({ orderBy: { eventDate: "desc" }, select: { eventDate: true } }),
     db.causalRule.count(),
     db.causalRule.count({ where: { verified: true } }),
+    db.systemMeta.findUnique({ where: { key: "gdelt_last_ingest" } }),
+    db.systemMeta.findUnique({ where: { key: "rules_last_generated" } }),
   ]);
 
   return Response.json({
@@ -28,7 +31,7 @@ export async function GET(req: Request) {
       latestPeriod: tradeLatest?.period,
       earliestPeriod: tradeEarliest?.period,
     },
-    events: { total: eventTotal, latestDate: eventLatest?.eventDate },
-    rules:  { total: ruleTotal, verified: ruleVerified },
+    events: { total: eventTotal, latestDate: eventLatest?.eventDate, lastIngestAt: gdeltMeta?.updatedAt ?? null },
+    rules:  { total: ruleTotal, verified: ruleVerified, lastGeneratedAt: rulesMeta?.updatedAt ?? null },
   });
 }
