@@ -219,7 +219,8 @@ export async function POST(req: Request) {
     try {
       // createIfNotExists is a no-op when the document already exists,
       // so Studio edits are never overwritten by re-running this endpoint.
-      await writeClient.createIfNotExists(page);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await writeClient.createIfNotExists(page as any);
       results.push({ slug: page.slug, ok: true });
     } catch (err) {
       results.push({ slug: page.slug, ok: false, error: err instanceof Error ? err.message : String(err) });
