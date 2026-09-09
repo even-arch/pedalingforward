@@ -18,14 +18,18 @@ const EXPORT_ORIGINS: { code: string; reporterCode: number }[] = [
   { code: "PL", reporterCode: 616 },
 ];
 
-const BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
-  { code: "TW", partnerCode: 490 },
-  { code: "CN", partnerCode: 156 },
-  { code: "IT", partnerCode: 380 },
-  { code: "VN", partnerCode: 704 },
-  { code: "PL", partnerCode: 616 },
-  { code: "JP", partnerCode: 392 },
-];
+// Map UN M49 numeric codes → ISO 3166-1 alpha-2 for bicycle-relevant trade partners.
+// Comtrade uses M49 codes which mostly match ISO numeric (exceptions: FR=251 not 250, TW=490).
+const UN_TO_ISO2: Record<number, string> = {
+  36: "AU",  40: "AT",  50: "BD",  56: "BE",  76: "BR", 100: "BG",
+  116: "KH", 124: "CA", 156: "CN", 191: "HR", 203: "CZ", 208: "DK",
+  246: "FI", 251: "FR", 276: "DE", 344: "HK", 348: "HU", 356: "IN",
+  360: "ID", 380: "IT", 392: "JP", 410: "KR", 442: "LU", 458: "MY",
+  484: "MX", 490: "TW", 528: "NL", 578: "NO", 608: "PH", 616: "PL",
+  620: "PT", 642: "RO", 688: "RS", 703: "SK", 705: "SI", 710: "ZA",
+  724: "ES", 752: "SE", 756: "CH", 757: "CH", 764: "TH", 792: "TR",
+  826: "GB", 840: "US", 842: "US", 704: "VN",
+};
 
 // 871430 = e-bike parts (sub-code of 8714); 871160 = complete e-bikes with electric motor
 const HS_CODES = ["8714", "8712", "871430", "871160"];
@@ -41,6 +45,16 @@ function currentYYYYMM(): string {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Returns the latest period where comprehensive all-partner bilateral data was saved
+async function getLatestBilateralPeriod(reporterCode: string, hsCode: string): Promise<string | null> {
+  const rec = await db.tradeMetric.findFirst({
+    where: { reporterCode, hsCode, flow: "import", partnerCode: "_ALL_" },
+    orderBy: { period: "desc" },
+    select: { period: true },
+  });
+  return rec?.period ?? null;
 }
 
 async function getLatestPeriod(reporterCode: string, hsCode: string, flow: string, partnerCode = "WORLD") {
@@ -187,49 +201,71 @@ export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "ma
   }
   }
 
-  // ── 3. Bilateral breakdown for all import markets ─────────────────────────
+  // ── 3. Comprehensive bilateral breakdown (all partners, one call per market+hs+period) ────────
+  // Each call returns ALL origin countries. Filter: flowCode=M, partner2Code==partnerCode (direct trade).
+  // Progress tracked via special partnerCode="_ALL_" marker — if that marker exists for a period, skip it.
   if (!limitReached) {
   outer3: for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
-    for (const { code: partCode, partnerCode } of BILATERAL_PARTNERS) {
-      if (marketCode === partCode) continue; // skip self-reference (e.g. JP←JP)
-      for (const hsCode of HS_CODES) {
-        if (callCount >= maxCalls) { limitReached = true; break outer3; }
+    for (const hsCode of HS_CODES) {
+      if (callCount >= maxCalls) { limitReached = true; break outer3; }
 
-        const dbPartnerCode = `PARTNER_${partCode}`;
-        const latest = await getLatestPeriod(marketCode, hsCode, "import", dbPartnerCode);
-        const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
-        if (startFrom > upTo) continue;
+      const latest = await getLatestBilateralPeriod(marketCode, hsCode);
+      const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
+      if (startFrom > upTo) continue;
 
-        const months: string[] = [];
-        let cur = startFrom;
-        while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
+      const months: string[] = [];
+      let cur = startFrom;
+      while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
 
-        let saved = 0;
-        let error: string | undefined;
-        let taskLimitReached = false;
-        for (const period of months) {
-          if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
-          const url = `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
-          const { ok, status, data } = await fetchComtrade(url);
-          callCount++;
-          if (callCount - lastProgressUpdate >= 30) {
-            lastProgressUpdate = callCount;
-            await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
-          }
-          if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
+      let saved = 0;
+      let error: string | undefined;
+      let taskLimitReached = false;
+      for (const period of months) {
+        if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
+        // No partnerCode param → API returns all individual partner rows
+        const url = `${BASE}?reporterCode=${marketReporter}&period=${period}&cmdCode=${hsCode}`;
+        const { ok, status, data } = await fetchComtrade(url);
+        callCount++;
+        if (callCount - lastProgressUpdate >= 30) {
+          lastProgressUpdate = callCount;
+          await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
+        }
+        if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
 
-          const total = (data as ComtradeRow[])
-            .filter((r) => r.flowCode === "M" && r.primaryValue > 0)
-            .reduce((s, r) => s + r.primaryValue, 0);
-
-          if (total > 0) {
-            await upsertMetric({ hsCode, reporterCode: marketCode, partnerCode: dbPartnerCode, flow: "import", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total });
-            saved++;
+        // Group by partnerCode, sum values where partner2Code === partnerCode (direct trade, avoids double-counting)
+        const byPartner: Record<number, number> = {};
+        for (const r of data as ComtradeRow[]) {
+          if (r.flowCode === "M" && r.partnerCode !== 0 && r.partner2Code === r.partnerCode && r.primaryValue > 0) {
+            byPartner[r.partnerCode] = (byPartner[r.partnerCode] ?? 0) + r.primaryValue;
           }
         }
-        results.push({ task: `${marketCode}←${partCode} ${hsCode}`, saved, error, ...(taskLimitReached && { limitReached: true }) });
-        if (limitReached) break outer3;
+
+        const formattedPeriod = `${period.slice(0, 4)}-${period.slice(4)}`;
+        let partnersSaved = 0;
+        for (const [numCode, value] of Object.entries(byPartner)) {
+          if (value < 100) continue; // skip negligible (<$100)
+          const isoCode = UN_TO_ISO2[Number(numCode)];
+          if (!isoCode) continue;
+          if (isoCode === marketCode) continue; // skip self-import
+          await upsertMetric({
+            hsCode, reporterCode: marketCode,
+            partnerCode: `PARTNER_${isoCode}`,
+            flow: "import", period: formattedPeriod, value,
+          });
+          partnersSaved++;
+        }
+
+        if (partnersSaved > 0) {
+          // Mark this period as comprehensively covered
+          await upsertMetric({
+            hsCode, reporterCode: marketCode, partnerCode: "_ALL_",
+            flow: "import", period: formattedPeriod, value: partnersSaved,
+          });
+          saved += partnersSaved;
+        }
       }
+      results.push({ task: `${marketCode} bilateral ${hsCode}`, saved, error, ...(taskLimitReached && { limitReached: true }) });
+      if (limitReached) break outer3;
     }
   }
   }

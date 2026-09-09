@@ -31,12 +31,31 @@ const IMPORT_COUNTRY_NAMES: Record<string, string> = {
 
 const SUPPLY_PARTNER_COLORS: Record<string, string> = {
   TW: "#D5352A", CN: "#f59e0b", IT: "#4a9eff", VN: "#22c55e",
-  PL: "#9f7aea", JP: "#ff6b35", US: "#6E6760", Other: "#C5C0BA",
+  PL: "#9f7aea", JP: "#ff6b35", CZ: "#06b6d4", TH: "#a855f7",
+  AT: "#ec4899", BE: "#14b8a6", PT: "#f97316", FR: "#84cc16",
+  GB: "#8b5cf6", KR: "#0ea5e9", DE: "#6b7280", CH: "#d97706",
+  HK: "#be185d", MY: "#10b981", IN: "#f43f5e", US: "#94a3b8",
+  Other: "#C5C0BA",
 };
 const SUPPLY_PARTNER_NAMES: Record<string, string> = {
   TW: "台灣", CN: "中國", IT: "義大利", VN: "越南",
-  PL: "波蘭", JP: "日本", US: "美國", Other: "其他",
+  PL: "波蘭", JP: "日本", CZ: "捷克", TH: "泰國",
+  AT: "奧地利", BE: "比利時", PT: "葡萄牙", FR: "法國",
+  GB: "英國", KR: "韓國", DE: "德國", CH: "瑞士",
+  HK: "香港", MY: "馬來西亞", IN: "印度", US: "美國",
+  Other: "其他",
 };
+
+// Deterministic color for any country not in SUPPLY_PARTNER_COLORS
+function partnerColor(code: string): string {
+  if (SUPPLY_PARTNER_COLORS[code]) return SUPPLY_PARTNER_COLORS[code];
+  let h = 0;
+  for (const c of code) h = (h * 31 + c.charCodeAt(0)) & 0xfffffff;
+  return `hsl(${h % 360}, 55%, 52%)`;
+}
+function partnerName(code: string): string {
+  return SUPPLY_PARTNER_NAMES[code] ?? code;
+}
 
 const TAG_LABELS: Record<string, string> = {
   demand_collapse: "需求崩跌", supply_chain: "供應鏈", tariff: "關稅",
@@ -90,9 +109,7 @@ export default function IntelligencePage() {
   const [activeCountries, setActiveCountries] = useState<Set<string>>(
     new Set(["DE", "US", "NL", "GB", "JP"])
   );
-  const [activePartners, setActivePartners] = useState<Set<string>>(
-    new Set(["TW", "CN", "IT", "VN", "PL", "Other"])
-  );
+  const [activePartners, setActivePartners] = useState<Set<string>>(new Set<string>());
   const [activeTab, setActiveTab] = useState<"events" | "rules">("events");
   const [filterCountry, setFilterCountry] = useState<string | null>(null);
 
@@ -109,6 +126,29 @@ export default function IntelligencePage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // ── Partners available for selected market (sorted by total value desc) ──
+  const availablePartners = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const m of bilateralMetrics) {
+      if (m.reporterCode !== supplyMarket) continue;
+      const key = m.partnerCode.replace("PARTNER_", "");
+      if (key === "_ALL_") continue;
+      if (m.hsCode !== activeHs && !(activeHs === "871430" && m.hsCode === "8714")) continue;
+      totals[key] = (totals[key] ?? 0) + m.value;
+    }
+    return Object.entries(totals)
+      .filter(([, v]) => v > 100_000) // only show partners with >$100k total
+      .sort(([, a], [, b]) => b - a)
+      .map(([code]) => code);
+  }, [bilateralMetrics, supplyMarket, activeHs]);
+
+  // Auto-select all available partners when they change
+  useEffect(() => {
+    if (availablePartners.length > 0) {
+      setActivePartners(new Set(availablePartners));
+    }
+  }, [availablePartners]);
 
   // ── Chart data: import market view ──────────────────────────────────────
 
@@ -316,9 +356,9 @@ export default function IntelligencePage() {
                     <Chip key={code} label={name} active={activeCountries.has(code)}
                       color={IMPORT_COUNTRY_COLORS[code]} onClick={() => toggleCountry(code)} />
                   ))
-                : Object.entries(SUPPLY_PARTNER_NAMES).map(([code, name]) => (
-                    <Chip key={code} label={name} active={activePartners.has(code)}
-                      color={SUPPLY_PARTNER_COLORS[code]} onClick={() => togglePartner(code)} />
+                : availablePartners.map((code) => (
+                    <Chip key={code} label={partnerName(code)} active={activePartners.has(code)}
+                      color={partnerColor(code)} onClick={() => togglePartner(code)} />
                   ))}
             </div>
           </div>
@@ -355,7 +395,7 @@ export default function IntelligencePage() {
                   formatter={(value, name) => {
                     const label = chartMode === "import"
                       ? (IMPORT_COUNTRY_NAMES[String(name ?? "")] ?? String(name ?? ""))
-                      : (SUPPLY_PARTNER_NAMES[String(name ?? "")] ?? String(name ?? ""));
+                      : partnerName(String(name ?? ""));
                     return [`$${Number(value ?? 0).toFixed(1)}M`, label];
                   }}
                 />
@@ -363,7 +403,7 @@ export default function IntelligencePage() {
                   formatter={(v: string) => {
                     const label = chartMode === "import"
                       ? (IMPORT_COUNTRY_NAMES[v] ?? v)
-                      : (SUPPLY_PARTNER_NAMES[v] ?? v);
+                      : partnerName(v);
                     return (
                       <span style={{ color: "#6E6760", fontSize: 11, fontFamily: "var(--font-ibm-mono, monospace)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                         {label}
@@ -389,12 +429,12 @@ export default function IntelligencePage() {
                     ) : null
                   )}
 
-                {/* Supply chain lines */}
+                {/* Supply chain lines — dynamic from DB data */}
                 {chartMode === "supply" &&
-                  Object.entries(SUPPLY_PARTNER_COLORS).map(([code, color]) =>
+                  [...availablePartners, "Other"].map((code) =>
                     activePartners.has(code) ? (
-                      <Line key={code} type="monotone" dataKey={code} stroke={color}
-                        dot={false} strokeWidth={code === "TW" ? 2.5 : 1.5}
+                      <Line key={code} type="monotone" dataKey={code} stroke={partnerColor(code)}
+                        dot={false} strokeWidth={code === "TW" ? 2.5 : code === "Other" ? 1 : 1.5}
                         strokeDasharray={code === "Other" ? "4 3" : undefined}
                         connectNulls />
                     ) : null
