@@ -1,4 +1,4 @@
-import { sanityFetch } from "@/sanity/lib/live";
+import { cachedSanity } from "@/sanity/lib/live";
 import { staticPageQuery } from "@/sanity/queries/staticPage";
 import { STATIC_PAGE_DEFAULTS } from "./staticPageDefaults";
 
@@ -28,7 +28,7 @@ export type StaticPageData = {
 
 export async function fetchStaticPage(slug: string): Promise<StaticPageData> {
   try {
-    const { data } = await sanityFetch({ query: staticPageQuery, params: { slug } });
+    const { data } = await cachedSanity({ query: staticPageQuery, params: { slug } });
     if (data) return data as StaticPageData;
   } catch {
     // fall through to default
