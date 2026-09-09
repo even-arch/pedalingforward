@@ -80,10 +80,10 @@ Generate rules based on these patterns. Each rule describes:
 - The observable trade outcome (import/export volume change, price effect)
 - The typical lag in months before the effect appears in trade statistics
 
-Output JSON matching this structure exactly:
+Keep each text field under 120 characters. Output JSON matching this structure exactly (no markdown, no code fences, raw JSON only):
 {"rules": [{"industry": "bicycle", "hsCode": "8714", "triggerEvent": "...", "triggerTags": [...], "propagationPath": "...", "tradeOutcome": "...", "lagMonths": 3, "confidence": 0.75, "evidencePeriod": "2020-2023"}]}
 
-Focus on patterns visible in the data. Confidence should reflect data support (0.5 = speculative, 0.75 = supported, 0.9 = strongly evidenced). Only output the JSON, no other text.`;
+Focus on patterns visible in the data. Confidence should reflect data support (0.5 = speculative, 0.75 = supported, 0.9 = strongly evidenced). Output raw JSON only — no markdown, no code fences.`;
 
   let responseText = "";
   try {
@@ -96,7 +96,7 @@ Focus on patterns visible in the data. Confidence should reflect data support (0
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: "user", content: prompt }],
       }),
     });
