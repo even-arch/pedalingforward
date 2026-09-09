@@ -87,15 +87,15 @@ export default function ContentPage() {
       <div style={section}>
         <div style={sectionLabel}>靜態頁面（五頁 × 四語）</div>
         <p style={desc}>
-          將車店、供應商、通路商、如何運作、關於我們五頁的所有文字（en / zh / ja / de）寫入 Sanity staticPage 文件。
-          寫入後可直接在 Studio 編輯，不需改程式碼。
+          僅在 Sanity 中尚未建立頁面時才寫入預設內容。已存在的頁面不會被覆蓋——
+          在 Studio 裡改過的文字是安全的。
         </p>
         <button
           onClick={seedPages}
           disabled={seedingPages}
           style={{ padding: "10px 24px", background: seedingPages ? "#2a2824" : "#D5352A", border: "none", color: seedingPages ? "#9a9490" : "#fff", borderRadius: 4, fontWeight: 600, fontSize: 13, cursor: seedingPages ? "not-allowed" : "pointer" }}
         >
-          {seedingPages ? "寫入中…" : "初始化靜態頁面"}
+          {seedingPages ? "寫入中…" : "建立缺少的靜態頁面"}
         </button>
       </div>
 

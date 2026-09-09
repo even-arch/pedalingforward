@@ -217,11 +217,9 @@ export async function POST(req: Request) {
 
   for (const page of PAGES) {
     try {
-      await writeClient
-        .transaction()
-        .createIfNotExists({ _id: page._id, _type: "staticPage" })
-        .patch(page._id, (p) => p.set(page))
-        .commit();
+      // createIfNotExists is a no-op when the document already exists,
+      // so Studio edits are never overwritten by re-running this endpoint.
+      await writeClient.createIfNotExists(page);
       results.push({ slug: page.slug, ok: true });
     } catch (err) {
       results.push({ slug: page.slug, ok: false, error: err instanceof Error ? err.message : String(err) });
