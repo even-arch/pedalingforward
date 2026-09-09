@@ -105,3 +105,18 @@ model SignalAlert {
 
   @@index([status])
 }
+
+model MediaGenerationJob {
+  id            String    @id @default(cuid())
+  itemIds       String[]
+  editorialNote String?   @db.Text
+  primaryUrl    String?
+  primarySource String?
+  status        String    @default("pending") // pending | running | done | error
+  result        Json?
+  error         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  doneAt        DateTime?
+
+  @@index([status, createdAt])
+}

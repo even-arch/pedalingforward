@@ -27,6 +27,12 @@ type TagStat = { tag: string; total: number; analyzed: number; collected: number
 type LocaleContent = { title: string; summary: string; keyPoints: string[] };
 type GeneratedArticle = { en: LocaleContent; zh: LocaleContent; ja: LocaleContent; de: LocaleContent };
 type Counts = { raw: number; analyzed: number; collected: number; dismissed: number };
+type GenerationJob = {
+  id: string; itemIds: string[]; editorialNote?: string; status: string;
+  result?: GeneratedArticle; error?: string;
+  primaryUrl?: string; primarySource?: string;
+  createdAt: string; doneAt?: string;
+};
 
 const TABS = [
   { key: "raw",      label: "待分析",  color: "#8a8278" },
@@ -135,6 +141,8 @@ export default function MediaPage() {
   const [generating, setGenerating] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
   const [genMeta, setGenMeta] = useState<{ sourceItemIds: string[]; primaryUrl?: string; sourceName?: string }>({ sourceItemIds: [] });
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [editorialNote, setEditorialNote] = useState("");
@@ -164,8 +172,20 @@ export default function MediaPage() {
     }
   }, [tab, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadJobs = useCallback(async () => {
+    const res = await fetch("/api/admin/media/jobs", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) setJobs((await res.json()).jobs ?? []);
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadCounts(); }, [loadCounts]);
+  useEffect(() => { loadCounts(); loadJobs(); }, [loadCounts, loadJobs]);
+
+  // Auto-poll every 5s while any job is pending/running
+  useEffect(() => {
+    if (!jobs.some((j) => j.status === "pending" || j.status === "running")) return;
+    const id = setInterval(loadJobs, 5000);
+    return () => clearInterval(id);
+  }, [jobs, loadJobs]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 4000); }
 
@@ -187,14 +207,28 @@ export default function MediaPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
-      setGeneratedArticle(data.article);
-      const firstItem = items.find((it) => ids.includes(it._id));
-      setGenMeta({ sourceItemIds: data.sourceItemIds, primaryUrl: data.primaryUrl, sourceName: firstItem?.sourceName });
+      showToast("✅ 已送出，可離開頁面，完成後回來審閱");
+      setSelected(new Set());
+      setEditorialNote("");
+      setTimeout(loadJobs, 800);
     } catch (err) {
       showToast(`錯誤: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setGenerating(false);
     }
+  }
+
+  function reviewJob(job: GenerationJob) {
+    if (!job.result) return;
+    setGeneratedArticle(job.result);
+    setGenMeta({ sourceItemIds: job.itemIds, primaryUrl: job.primaryUrl, sourceName: job.primarySource });
+    setCurrentJobId(job.id);
+  }
+
+  async function dismissJob(id: string) {
+    await fetch("/api/admin/media/jobs", { method: "PATCH", headers, body: JSON.stringify({ id }) });
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    if (currentJobId === id) { setGeneratedArticle(null); setCurrentJobId(null); }
   }
 
   async function savePost(audience: string) {
@@ -209,6 +243,7 @@ export default function MediaPage() {
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
       showToast(`✅ 已儲存：${data.slug}`);
       setGeneratedArticle(null);
+      if (currentJobId) { dismissJob(currentJobId); setCurrentJobId(null); }
       setSelected(new Set());
       setEditorialNote("");
       load();
@@ -399,6 +434,49 @@ export default function MediaPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Generation jobs panel */}
+      {jobs.length > 0 && (
+        <div style={{ marginBottom: 16, border: "1px solid #2a3a2a", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", background: "#141e14", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#4caf50", letterSpacing: "0.06em", textTransform: "uppercase" }}>✨ AI 草稿</span>
+            <span style={{ fontSize: 11, color: "#6a7a6a" }}>
+              {jobs.filter((j) => j.status === "pending" || j.status === "running").length > 0 && "生成中…"}
+              {jobs.filter((j) => j.status === "done").length > 0 && `${jobs.filter((j) => j.status === "done").length} 篇待審`}
+            </span>
+          </div>
+          {jobs.map((job) => (
+            <div key={job.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: "1px solid #1e2a1e", background: "#0e160e" }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, minWidth: 48,
+                color: job.status === "done" ? "#4caf50" : job.status === "error" ? "#f08070" : "#e8c84a",
+                animation: (job.status === "pending" || job.status === "running") ? "pulse 1.2s ease-in-out infinite" : undefined,
+              }}>
+                {job.status === "done" ? "完成" : job.status === "error" ? "失敗" : "生成中 ●"}
+              </span>
+              <span style={{ flex: 1, fontSize: 12, color: "#8a9880" }}>
+                {job.status === "error"
+                  ? <span style={{ color: "#c08070" }}>{job.error?.slice(0, 80)}</span>
+                  : `${job.itemIds.length} 篇新聞`
+                }
+              </span>
+              <span style={{ fontSize: 11, color: "#4a5a4a", fontFamily: "monospace" }}>
+                {new Date(job.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+              {job.status === "done" && (
+                <button onClick={() => reviewJob(job)}
+                  style={{ padding: "5px 14px", background: "#1e3a1e", border: "1px solid #2a5a2a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  審閱
+                </button>
+              )}
+              <button onClick={() => dismissJob(job.id)}
+                style={{ padding: "4px 8px", background: "none", border: "none", color: "#4a5a4a", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
