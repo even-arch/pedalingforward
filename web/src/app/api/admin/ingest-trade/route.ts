@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   if (isCron) {
     try {
-      const results = await ingestComtradeUpdates("cron");
+      const results = await ingestComtradeUpdates("cron", 400);
       const totalSaved = results.reduce((s, r) => s + r.saved, 0);
       return Response.json({ ok: true, results, totalSaved });
     } catch (err) {
