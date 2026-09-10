@@ -75,8 +75,8 @@ function TagChip({ tag, active, onClick }: { tag: string; active?: boolean; onCl
   );
 }
 
-function ArticlePreview({ article, primaryUrl, sourceName, onSave, onClose, saving }: {
-  article: GeneratedArticle; primaryUrl?: string; sourceName?: string;
+function ArticlePreview({ article, primaryUrl, sourceName, sourceCount, onSave, onClose, saving }: {
+  article: GeneratedArticle; primaryUrl?: string; sourceName?: string; sourceCount?: number;
   onSave: (audience: string) => void; onClose: () => void; saving: boolean;
 }) {
   const [locale, setLocale] = useState<"en" | "zh" | "ja" | "de">("zh");
@@ -108,6 +108,9 @@ function ArticlePreview({ article, primaryUrl, sourceName, onSave, onClose, savi
           {primaryUrl && (
             <div style={{ fontSize: 12, color: "#5a5650" }}>
               來源：<a href={primaryUrl} target="_blank" rel="noopener" style={{ color: "#8a8278" }}>{sourceName || primaryUrl}</a>
+              {sourceCount && sourceCount > 1 && (
+                <span style={{ marginLeft: 8, color: "#4a5a4a" }}>（共 {sourceCount} 篇來源，儲存後全部連結都會帶入）</span>
+              )}
             </div>
           )}
         </div>
@@ -140,7 +143,7 @@ export default function MediaPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
   const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
-  const [genMeta, setGenMeta] = useState<{ sourceItemIds: string[]; primaryUrl?: string; sourceName?: string }>({ sourceItemIds: [] });
+  const [genMeta, setGenMeta] = useState<{ sourceItemIds: string[]; primaryUrl?: string; sourceName?: string; sourceCount?: number }>({ sourceItemIds: [] });
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [saving, setSaving] = useState(false);
@@ -221,7 +224,7 @@ export default function MediaPage() {
   function reviewJob(job: GenerationJob) {
     if (!job.result) return;
     setGeneratedArticle(job.result);
-    setGenMeta({ sourceItemIds: job.itemIds, primaryUrl: job.primaryUrl, sourceName: job.primarySource });
+    setGenMeta({ sourceItemIds: job.itemIds, primaryUrl: job.primaryUrl, sourceName: job.primarySource, sourceCount: job.itemIds.length });
     setCurrentJobId(job.id);
   }
 
@@ -237,7 +240,7 @@ export default function MediaPage() {
     try {
       const res = await fetch("/api/admin/save-post", {
         method: "POST", headers,
-        body: JSON.stringify({ article: generatedArticle, sourceItemIds: genMeta.sourceItemIds, primaryUrl: genMeta.primaryUrl, sourceName: genMeta.sourceName, audience }),
+        body: JSON.stringify({ article: generatedArticle, sourceItemIds: genMeta.sourceItemIds, primaryUrl: genMeta.primaryUrl, audience }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Unknown error");
@@ -350,7 +353,7 @@ export default function MediaPage() {
       )}
 
       {generatedArticle && (
-        <ArticlePreview article={generatedArticle} primaryUrl={genMeta.primaryUrl} sourceName={genMeta.sourceName}
+        <ArticlePreview article={generatedArticle} primaryUrl={genMeta.primaryUrl} sourceName={genMeta.sourceName} sourceCount={genMeta.sourceCount}
           onSave={savePost} onClose={() => setGeneratedArticle(null)} saving={saving} />
       )}
 
