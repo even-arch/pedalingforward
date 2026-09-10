@@ -11,6 +11,24 @@ type LibraryImage = {
   imageUrl?: string;
 };
 
+function pickBest(candidates: LibraryImage[], mediaTags: string[]): LibraryImage | null {
+  const querySet = new Set(mediaTags);
+  const ranked = candidates
+    .filter((c) => c.image?.asset?._ref)
+    .map((c) => ({ ...c, overlap: (c.tags ?? []).filter((t) => querySet.has(t)).length }))
+    .sort((a, b) => b.overlap - a.overlap);
+  return ranked[0] ?? null;
+}
+
+async function assignFromLibraryImage(postId: string, img: LibraryImage) {
+  await writeClient.patch(postId).set({
+    mainImage: {
+      _type: "image",
+      asset: { _type: "reference", _ref: img.image!.asset!._ref },
+    },
+  }).commit();
+}
+
 export async function POST(req: Request) {
   if (!(await checkAdminAuth(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,7 +37,6 @@ export async function POST(req: Request) {
   const { postId, force } = await req.json() as { postId: string; force?: boolean };
   if (!postId) return Response.json({ error: "postId required" }, { status: 400 });
 
-  // Fetch post's mediaTags and check if mainImage is already set
   const post = await writeClient.fetch<{
     mediaTags?: string[];
     mainImage?: { asset?: { _ref: string } } | null;
@@ -31,7 +48,6 @@ export async function POST(req: Request) {
 
   if (!post) return Response.json({ error: "Post not found" }, { status: 404 });
 
-  // Skip if mainImage is already set — unless force=true (re-roll)
   if (!force && post.mainImage?.asset?._ref) {
     return Response.json({ ok: true, source: "already-set" });
   }
@@ -41,7 +57,16 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, source: "no-tags" });
   }
 
-  // Query imageAsset library for best tag overlap
+  // Find asset refs already used by OTHER published posts
+  const usedRefs = new Set(
+    await writeClient.fetch<string[]>(
+      `*[_type == "post" && defined(publishedAt) && defined(mainImage.asset) && _id != $id].mainImage.asset._ref`,
+      { id: postId },
+      { cache: "no-store" }
+    )
+  );
+
+  // Query imageAsset library for tag-matching candidates
   const tagList = mediaTags.map((t) => `"${t}"`).join(", ");
   const candidates = await writeClient.fetch<LibraryImage[]>(
     `*[_type == "imageAsset" && count((tags[])[@ in [${tagList}]]) > 0] {
@@ -53,30 +78,28 @@ export async function POST(req: Request) {
     { cache: "no-store" }
   );
 
-  if (candidates.length > 0) {
-    // Pick image with most tag overlap
-    const querySet = new Set(mediaTags);
-    const best = candidates
-      .map((c) => ({ ...c, overlap: (c.tags ?? []).filter((t) => querySet.has(t)).length }))
-      .sort((a, b) => b.overlap - a.overlap)[0];
+  // Prefer images not already used by another post
+  const unused = candidates.filter((c) => !usedRefs.has(c.image?.asset?._ref ?? ""));
 
-    if (best.image?.asset?._ref) {
-      await writeClient.patch(postId).set({
-        mainImage: {
-          _type: "image",
-          asset: { _type: "reference", _ref: best.image.asset._ref },
-        },
-      }).commit();
-      return Response.json({ ok: true, source: "library", imageId: best._id });
-    }
+  if (unused.length > 0) {
+    const best = pickBest(unused, mediaTags)!;
+    await assignFromLibraryImage(postId, best);
+    return Response.json({ ok: true, source: "library", imageId: best._id });
   }
 
-  // Library miss — fetch from Pixabay, save to library, attach
+  // All library matches already in use — fetch fresh from Pixabay and add to library
   const pixabayKey = await getPixabayKey();
-  if (!pixabayKey) {
-    return Response.json({ ok: false, source: "no-pixabay-key" });
+  if (pixabayKey) {
+    const attached = await fetchAndAttachImage(postId, mediaTags, pixabayKey);
+    if (attached) return Response.json({ ok: true, source: "pixabay-new" });
   }
 
-  const attached = await fetchAndAttachImage(postId, mediaTags, pixabayKey);
-  return Response.json({ ok: attached, source: "pixabay" });
+  // Last resort: reuse a library image even if duplicated (better than no image)
+  if (candidates.length > 0) {
+    const best = pickBest(candidates, mediaTags)!;
+    await assignFromLibraryImage(postId, best);
+    return Response.json({ ok: true, source: "library-reuse" });
+  }
+
+  return Response.json({ ok: false, source: "no-image-found" });
 }
