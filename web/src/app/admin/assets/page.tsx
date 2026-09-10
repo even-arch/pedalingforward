@@ -431,6 +431,7 @@ export default function AssetsPage() {
   const [editItem, setEditItem] = useState<ImageAssetItem | null>(null);
   const [populating, setPopulating] = useState(false);
   const [populateResult, setPopulateResult] = useState<string | null>(null);
+  const [populateProgress, setPopulateProgress] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
@@ -452,18 +453,74 @@ export default function AssetsPage() {
   async function populate() {
     setPopulating(true);
     setPopulateResult(null);
+    setPopulateProgress(null);
+
     try {
-      const res = await fetch("/api/admin/assets/populate", {
-        method: "POST",
+      // Step 1: get tag list and current counts
+      const listRes = await fetch("/api/admin/assets/populate", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json() as { totalAdded: number; totalSkipped: number; totalTags: number };
-      setPopulateResult(`完成：新增 ${data.totalAdded} 張，已有足夠圖片的標籤跳過 ${data.totalSkipped}/${data.totalTags}`);
+      if (!listRes.ok) {
+        const d = await listRes.json() as { error?: string };
+        setPopulateResult(`失敗：${d.error ?? `HTTP ${listRes.status}`}`);
+        return;
+      }
+      const { tags } = await listRes.json() as {
+        tags: { tag: string; count: number; needed: number }[];
+        imagesPerTag: number;
+      };
+
+      // searchQuery lookup (mirrors server-side POPULATE_TAGS)
+      const SEARCH_QUERIES: Record<string, string> = {
+        "supply-chain": "bicycle factory manufacturing", "product-launch": "new bicycle component",
+        "market-news": "cycling industry business", "trade-show": "bicycle trade show exhibition",
+        "retail": "bicycle shop store", "regulation": "bicycle transportation policy",
+        "tech": "bicycle technology innovation", "e-bike": "electric bicycle ebike",
+        "urban": "city cycling commute", "cargo-bike": "cargo bicycle utility",
+        "gravel": "gravel cycling adventure", "mtb": "mountain bike trail", "road": "road cycling race",
+        "shimano": "shimano bicycle component", "sram": "sram bicycle drivetrain",
+        "bosch": "bosch electric bike motor", "trek": "trek bicycle", "giant": "giant bicycle",
+        "specialized": "specialized bicycle", "merida": "merida bicycle",
+        "carbon-fiber": "carbon fiber bicycle frame", "hydraulic-brakes": "bicycle disc brake",
+        "suspension": "bike suspension fork", "derailleur": "bicycle derailleur gear", "frame": "bicycle frame",
+      };
+
+      const toFetch = tags.filter((t) => t.needed > 0);
+      if (!toFetch.length) {
+        setPopulateResult("圖庫已完整，所有標籤都有足夠的圖片");
+        return;
+      }
+
+      // Step 2: process tags one by one (each request ≈ 10-15s, avoids Vercel timeout)
+      let totalAdded = 0;
+      let totalSkipped = 0;
+      for (let i = 0; i < toFetch.length; i++) {
+        const { tag } = toFetch[i];
+        const searchQuery = SEARCH_QUERIES[tag] ?? `${tag} bicycle`;
+        setPopulateProgress(`處理中 ${i + 1}/${toFetch.length}：${tag}`);
+
+        const tagRes = await fetch("/api/admin/assets/populate", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ tag, searchQuery }),
+        });
+        const d = await tagRes.json() as { ok?: boolean; added?: number; skipped?: boolean; error?: string };
+        if (!tagRes.ok) {
+          setPopulateResult(`標籤「${tag}」失敗：${d.error ?? `HTTP ${tagRes.status}`}`);
+          return;
+        }
+        if (d.skipped) totalSkipped++;
+        else totalAdded += d.added ?? 0;
+      }
+
+      setPopulateProgress(null);
+      setPopulateResult(`完成：新增 ${totalAdded} 張圖片，${totalSkipped} 個標籤已有足夠圖片`);
       load();
-    } catch {
-      setPopulateResult("填充失敗，請確認 Pixabay API key 是否已設定");
+    } catch (err) {
+      setPopulateResult(`填充失敗：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setPopulating(false);
+      setPopulateProgress(null);
     }
   }
 
@@ -497,9 +554,9 @@ export default function AssetsPage() {
           <button onClick={() => setShowUpload(true)} style={BTN_RED}>＋ 上傳圖片</button>
         </div>
       </div>
-      {populateResult && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: "#4caf50" }}>
-          {populateResult}
+      {(populateProgress || populateResult) && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: populateResult?.startsWith("失敗") || populateResult?.startsWith("填充失敗") ? "#D5352A" : "#4caf50" }}>
+          {populateProgress ?? populateResult}
         </div>
       )}
 
