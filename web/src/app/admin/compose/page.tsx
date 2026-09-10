@@ -8,6 +8,7 @@ type LocaleKey = "en" | "zh" | "ja" | "de";
 type DraftPost = {
   _id: string;
   _createdAt: string;
+  publishedAt?: string;
   status: string;
   postType?: string;
   audience?: string;
@@ -26,6 +27,21 @@ const AUDIENCE_OPTIONS = [
   { value: "shop", label: "🏪 車店（en/de/ja）" },
   { value: "both", label: "🌐 兩者（全語言）" },
 ];
+
+function isoWeek(d: Date): number {
+  const u = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = u.getUTCDay() || 7;
+  u.setUTCDate(u.getUTCDate() + 4 - day);
+  const y1 = new Date(Date.UTC(u.getUTCFullYear(), 0, 1));
+  return Math.ceil(((u.getTime() - y1.getTime()) / 86400000 + 1) / 7);
+}
+
+function fmtNewsDate(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const m = d.toLocaleDateString("zh-TW", { year: "numeric", month: "long" });
+  return `${m} · W${isoWeek(d)}`;
+}
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("zh-TW", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -390,7 +406,13 @@ export default function ComposePage() {
                 ) : null}
               </div>
               <div style={{ flexShrink: 0, textAlign: "right", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                <div style={{ fontSize: 11, color: "#5a5650" }}>{fmt(post._createdAt)}</div>
+                {post.publishedAt ? (
+                  <div style={{ fontSize: 12, color: "#c8c4c0", fontWeight: 600, letterSpacing: "0.01em" }}>
+                    {fmtNewsDate(post.publishedAt)}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "#5a5650" }}>（無日期）</div>
+                )}
                 {activeStatus === "draft" && !post.editorialNote && (
                   <div style={{ fontSize: 11, color: "#D5352A" }}>⚠ 缺備注</div>
                 )}
