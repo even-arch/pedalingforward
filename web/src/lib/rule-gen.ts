@@ -85,7 +85,7 @@ Keep each text field under 120 characters. Output JSON matching this structure e
 
 Focus on patterns visible in the data. Confidence should reflect data support (0.5 = speculative, 0.75 = supported, 0.9 = strongly evidenced). Output raw JSON only — no markdown, no code fences.`;
 
-  let responseText = "";
+  let candidates: RuleCandidate[] = [];
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -97,6 +97,9 @@ Focus on patterns visible in the data. Confidence should reflect data support (0
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 4096,
+        // Use tool_use to guarantee structurally valid JSON output
+        tools: [{ name: "output_rules", description: "Output causal rules", input_schema: RULE_SCHEMA }],
+        tool_choice: { type: "tool", name: "output_rules" },
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -106,27 +109,17 @@ Focus on patterns visible in the data. Confidence should reflect data support (0
       return { generated: 0, error: `Claude API error ${res.status}: ${err.slice(0, 200)}` };
     }
 
-    const data = await res.json() as { content?: { type: string; text: string }[] };
-    responseText = data.content?.find((c) => c.type === "text")?.text ?? "";
-  } catch (err) {
-    return { generated: 0, error: `Network error: ${String(err)}` };
-  }
+    const data = await res.json() as { content?: { type: string; input?: { rules?: RuleCandidate[] } }[] };
+    const toolResult = data.content?.find((c) => c.type === "tool_use");
+    candidates = toolResult?.input?.rules ?? [];
 
-  // Parse JSON from response
-  let candidates: RuleCandidate[] = [];
-  try {
-    const match = responseText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON found in response");
-    const parsed = JSON.parse(match[0]) as { rules?: RuleCandidate[] };
-    candidates = parsed.rules ?? [];
-    // Validate against schema roughly
+    // Basic field validation
     candidates = candidates.filter((r) =>
       r.industry && r.hsCode && r.triggerEvent && r.tradeOutcome &&
       typeof r.lagMonths === "number" && typeof r.confidence === "number"
     );
-    void RULE_SCHEMA; // schema kept for reference
   } catch (err) {
-    return { generated: 0, error: `JSON parse error: ${String(err)} — response: ${responseText.slice(0, 300)}` };
+    return { generated: 0, error: `API error: ${String(err)}` };
   }
 
   if (candidates.length === 0) return { generated: 0, error: "Claude returned no valid rules" };
