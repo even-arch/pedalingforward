@@ -62,14 +62,34 @@ export async function GET(req: NextRequest) {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
+        tools: [{
+          name: "output_tags",
+          description: "Output relevance and tags for each article",
+          input_schema: {
+            type: "object" as const,
+            required: ["results"],
+            properties: {
+              results: {
+                type: "array" as const,
+                items: {
+                  type: "object" as const,
+                  required: ["relevant", "tags"],
+                  properties: {
+                    relevant: { type: "boolean" as const },
+                    tags: { type: "array" as const, items: { type: "string" as const } },
+                  },
+                },
+              },
+            },
+          },
+        }],
+        tool_choice: { type: "tool" as const, name: "output_tags" },
         messages: [{ role: "user", content: `Tag these ${batch.length} articles:\n\n${prompt}` }],
       });
 
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error("No JSON array in response");
-
-      const results: { relevant: boolean; tags: string[] }[] = JSON.parse(jsonMatch[0]);
+      const toolBlock = response.content.find((b) => b.type === "tool_use") as { input: { results: { relevant: boolean; tags: string[] }[] } } | undefined;
+      if (!toolBlock) throw new Error("No JSON array in response");
+      const results: { relevant: boolean; tags: string[] }[] = toolBlock.input.results;
 
       for (let j = 0; j < batch.length; j++) {
         const { relevant, tags } = results[j] ?? { relevant: false, tags: [] };

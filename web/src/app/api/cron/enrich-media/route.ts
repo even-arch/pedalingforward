@@ -86,15 +86,26 @@ export async function GET(req: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 512,
+        max_tokens: 800,
+        tools: [{
+          name: "output_summary",
+          description: "Output article summary and key points",
+          input_schema: {
+            type: "object" as const,
+            required: ["summary", "keyPoints"],
+            properties: {
+              summary:   { type: "string" as const },
+              keyPoints: { type: "array" as const, items: { type: "string" as const }, minItems: 1, maxItems: 3 },
+            },
+          },
+        }],
+        tool_choice: { type: "tool" as const, name: "output_summary" },
         messages: [{ role: "user", content: prompt }],
       });
 
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON in response");
-
-      const { summary, keyPoints } = JSON.parse(jsonMatch[0]) as { summary: string; keyPoints: string[] };
+      const toolBlock = response.content.find((b) => b.type === "tool_use") as { input: { summary: string; keyPoints: string[] } } | undefined;
+      if (!toolBlock) throw new Error("No JSON in response");
+      const { summary, keyPoints } = toolBlock.input;
 
       await writeClient.patch(item._id).set({
         summary,
