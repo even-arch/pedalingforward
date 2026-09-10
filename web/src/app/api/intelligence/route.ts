@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
           select: { reporterCode: true, hsCode: true, period: true, value: true },
           orderBy: { period: "asc" },
         }),
-        // Bilateral: all import markets' breakdown by supplier country
+        // Bilateral: all import markets' breakdown by supplier country (exclude world total + meta markers)
         db.tradeMetric.findMany({
           where: {
             flow: "import",
-            NOT: { partnerCode: "WORLD" },
+            NOT: [{ partnerCode: "WORLD" }, { partnerCode: "_ALL_" }],
           },
           select: { reporterCode: true, partnerCode: true, hsCode: true, period: true, value: true },
           orderBy: { period: "asc" },

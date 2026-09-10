@@ -143,10 +143,10 @@ export default function IntelligencePage() {
       .map(([code]) => code);
   }, [bilateralMetrics, supplyMarket, activeHs]);
 
-  // Auto-select all available partners when they change
+  // Auto-select all available partners + Other when they change
   useEffect(() => {
     if (availablePartners.length > 0) {
-      setActivePartners(new Set(availablePartners));
+      setActivePartners(new Set([...availablePartners, "Other"]));
     }
   }, [availablePartners]);
 
@@ -187,8 +187,9 @@ export default function IntelligencePage() {
       // For 871430 bilateral, fall back to 8714 if 871430-specific bilateral not available
       const hsMatch = m.hsCode === activeHs || (activeHs === "871430" && m.hsCode === "8714");
       if (!hsMatch) continue;
-      if (!byPeriod[m.period]) byPeriod[m.period] = {};
       const partnerKey = m.partnerCode.replace("PARTNER_", "");
+      if (partnerKey === "_ALL_" || partnerKey === supplyMarket) continue; // skip meta markers + self
+      if (!byPeriod[m.period]) byPeriod[m.period] = {};
       byPeriod[m.period][partnerKey] = (byPeriod[m.period][partnerKey] ?? 0) + m.value / 1_000_000;
     }
 
