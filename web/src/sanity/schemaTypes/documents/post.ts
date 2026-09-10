@@ -127,6 +127,13 @@ export const post = defineType({
       description: 'Original article URL (for industry news sourced from RSS)',
     }),
     defineField({
+      name: 'mediaTags',
+      title: 'Media Tags',
+      type: 'array',
+      of: [defineArrayMember({type: 'string'})],
+      options: { layout: 'tags' },
+    }),
+    defineField({
       name: 'featured',
       title: 'Featured on Homepage',
       type: 'boolean',
