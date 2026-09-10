@@ -1,26 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../layout";
 
 type ImageAssetItem = {
   _id: string;
   _createdAt: string;
   title: string;
-  quality?: string;
   tags?: string[];
   modelNo?: string;
   source?: string;
   usageRights?: string;
   imageUrl?: string;
-  overlap?: number;
 };
-
-const QUALITY_OPTS = [
-  { value: "raw",      label: "📷 Raw" },
-  { value: "edited",   label: "✂️ 修圖" },
-  { value: "lifestyle",label: "🏞 Lifestyle" },
-];
 
 const RIGHTS_OPTS = [
   { value: "owned",    label: "✅ 自有" },
@@ -30,25 +22,25 @@ const RIGHTS_OPTS = [
 ];
 
 const TAG_LABELS: Record<string, string> = {
-  "supply-chain":   "供應鏈",
-  "product-launch": "新品",
-  "market-news":    "市場動態",
-  "regulation":     "法規",
-  "trade-show":     "展覽",
-  "retail":         "零售",
-  "tech":           "技術",
-  "e-bike":         "電動車",
-  "urban":          "都市",
-  "cargo-bike":     "貨運車",
-  "gravel":         "Gravel",
-  "mtb":            "MTB",
-  "road":           "公路",
-  "shimano":        "Shimano",
-  "sram":           "SRAM",
-  "bosch":          "Bosch",
-  "carbon-fiber":   "碳纖維",
+  "supply-chain":    "供應鏈",
+  "product-launch":  "新品",
+  "market-news":     "市場動態",
+  "regulation":      "法規",
+  "trade-show":      "展覽",
+  "retail":          "零售",
+  "tech":            "技術",
+  "e-bike":          "電動車",
+  "urban":           "都市",
+  "cargo-bike":      "貨運車",
+  "gravel":          "Gravel",
+  "mtb":             "MTB",
+  "road":            "公路",
+  "shimano":         "Shimano",
+  "sram":            "SRAM",
+  "bosch":           "Bosch",
+  "carbon-fiber":    "碳纖維",
   "hydraulic-brakes":"油壓煞車",
-  "suspension":     "避震",
+  "suspension":      "避震",
 };
 
 function tagLabel(t: string) {
@@ -71,7 +63,6 @@ function UploadModal({ token, onDone, onClose }: {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [title, setTitle] = useState("");
-  const [quality, setQuality] = useState("raw");
   const [tagsInput, setTagsInput] = useState("");
   const [source, setSource] = useState("");
   const [usageRights, setUsageRights] = useState("owned");
@@ -94,7 +85,7 @@ function UploadModal({ token, onDone, onClose }: {
     setError("");
     try {
       const tags = tagsInput.split(/[\s,]+/).map((t) => t.trim().toLowerCase()).filter(Boolean);
-      const meta = { title, quality, tags, source, usageRights, modelNo };
+      const meta = { title, tags, source, usageRights, modelNo };
       const fd = new FormData();
       fd.append("image", file);
       fd.append("meta", JSON.stringify(meta));
@@ -120,7 +111,6 @@ function UploadModal({ token, onDone, onClose }: {
           <button onClick={onClose} style={CLOSE_BTN}>✕</button>
         </div>
         <form onSubmit={submit} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Drop zone */}
           <label
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -145,18 +135,11 @@ function UploadModal({ token, onDone, onClose }: {
             <input value={title} onChange={(e) => setTitle(e.target.value)} style={INPUT} required />
           </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="品質">
-              <select value={quality} onChange={(e) => setQuality(e.target.value)} style={INPUT}>
-                {QUALITY_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="版權">
-              <select value={usageRights} onChange={(e) => setUsageRights(e.target.value)} style={INPUT}>
-                {RIGHTS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-          </div>
+          <Field label="版權">
+            <select value={usageRights} onChange={(e) => setUsageRights(e.target.value)} style={INPUT}>
+              {RIGHTS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
 
           <Field label="標籤（空格或逗號分隔）">
             <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} style={INPUT}
@@ -186,7 +169,7 @@ function UploadModal({ token, onDone, onClose }: {
 }
 
 // ──────────────────────────────────────────────
-// Edit Tags Modal
+// Edit Modal
 // ──────────────────────────────────────────────
 function EditModal({ item, token, onDone, onClose }: {
   item: ImageAssetItem;
@@ -195,7 +178,6 @@ function EditModal({ item, token, onDone, onClose }: {
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(item.title);
-  const [quality, setQuality] = useState(item.quality ?? "raw");
   const [tagsInput, setTagsInput] = useState((item.tags ?? []).join(" "));
   const [source, setSource] = useState(item.source ?? "");
   const [usageRights, setUsageRights] = useState(item.usageRights ?? "owned");
@@ -212,7 +194,7 @@ function EditModal({ item, token, onDone, onClose }: {
       const res = await fetch("/api/admin/assets", {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item._id, title, quality, tags, source, usageRights, modelNo }),
+        body: JSON.stringify({ id: item._id, title, tags, source, usageRights, modelNo }),
       });
       if (!res.ok) throw new Error(await res.text());
       onDone();
@@ -238,18 +220,11 @@ function EditModal({ item, token, onDone, onClose }: {
           <Field label="標題">
             <input value={title} onChange={(e) => setTitle(e.target.value)} style={INPUT} required />
           </Field>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="品質">
-              <select value={quality} onChange={(e) => setQuality(e.target.value)} style={INPUT}>
-                {QUALITY_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="版權">
-              <select value={usageRights} onChange={(e) => setUsageRights(e.target.value)} style={INPUT}>
-                {RIGHTS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-          </div>
+          <Field label="版權">
+            <select value={usageRights} onChange={(e) => setUsageRights(e.target.value)} style={INPUT}>
+              {RIGHTS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
           <Field label="標籤（空格或逗號分隔）">
             <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} style={INPUT} />
           </Field>
@@ -272,92 +247,6 @@ function EditModal({ item, token, onDone, onClose }: {
 }
 
 // ──────────────────────────────────────────────
-// Match Panel — find images for given post tags
-// ──────────────────────────────────────────────
-function MatchPanel({ token, onClose }: { token: string; onClose: () => void }) {
-  const [tagsInput, setTagsInput] = useState("");
-  const [results, setResults] = useState<ImageAssetItem[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    const tags = tagsInput.split(/[\s,]+/).map((t) => t.trim().toLowerCase()).filter(Boolean);
-    if (!tags.length) return;
-    setSearching(true);
-    try {
-      const res = await fetch("/api/admin/assets/match", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ tags }),
-      });
-      const data = await res.json() as { items: ImageAssetItem[] };
-      setResults(data.items ?? []);
-      setSearched(true);
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  return (
-    <div style={OVERLAY}>
-      <div style={{ ...PANEL, maxWidth: 600, maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={PANEL_HEADER}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>為文章找配圖</span>
-          <button onClick={onClose} style={CLOSE_BTN}>✕</button>
-        </div>
-        <div style={{ padding: "20px 24px" }}>
-          <p style={{ color: "#8a8278", fontSize: 13, margin: "0 0 16px" }}>
-            貼上文章的標籤，系統按標籤重疊數排出最適合的圖片。
-          </p>
-          <form onSubmit={search} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-            <input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="shimano supply-chain product-launch …"
-              style={{ ...INPUT, flex: 1 }}
-            />
-            <button type="submit" disabled={searching || !tagsInput.trim()} style={BTN_RED}>
-              {searching ? "…" : "搜尋"}
-            </button>
-          </form>
-          {searched && results.length === 0 && (
-            <div style={{ color: "#8a8278", fontSize: 13, textAlign: "center", padding: "32px 0" }}>
-              目前圖庫裡沒有符合這些標籤的圖片
-            </div>
-          )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-            {results.map((img) => (
-              <div key={img._id} style={CARD}>
-                {img.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumbUrl(img.imageUrl)} alt={img.title} style={THUMB} />
-                ) : (
-                  <div style={{ ...THUMB, background: "#1a1916", display: "flex", alignItems: "center", justifyContent: "center", color: "#3a3834" }}>
-                    無圖
-                  </div>
-                )}
-                <div style={{ padding: "8px 10px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "#e8e4df", lineHeight: 1.3 }}>{img.title}</div>
-                  <div style={{ fontSize: 11, color: "#D5352A", fontWeight: 700, marginBottom: 4 }}>
-                    符合 {img.overlap ?? 0} 個標籤
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                    {(img.tags ?? []).slice(0, 5).map((t) => (
-                      <span key={t} style={TAG_CHIP}>{tagLabel(t)}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────
 // Image Card
 // ──────────────────────────────────────────────
 function ImageCard({ item, onEdit, onDelete }: {
@@ -366,8 +255,6 @@ function ImageCard({ item, onEdit, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const qualityColor = item.quality === "lifestyle" ? "#4caf50" : item.quality === "edited" ? "#f59e0b" : "#8a8278";
-  const qualityLabel = QUALITY_OPTS.find((o) => o.value === item.quality)?.label ?? item.quality ?? "—";
 
   return (
     <div style={CARD}>
@@ -381,21 +268,16 @@ function ImageCard({ item, onEdit, onDelete }: {
       )}
       <div style={{ padding: "8px 10px", flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: "#e8e4df", lineHeight: 1.3, marginBottom: 6 }}>{item.title}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: qualityColor, background: `${qualityColor}22`, padding: "1px 6px", borderRadius: 3 }}>
-            {qualityLabel}
-          </span>
-          {item.usageRights && (
-            <span style={{ fontSize: 10, color: "#8a8278" }}>
-              {RIGHTS_OPTS.find((o) => o.value === item.usageRights)?.label ?? item.usageRights}
-            </span>
-          )}
-        </div>
         {(item.tags ?? []).length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 6 }}>
             {(item.tags ?? []).map((t) => (
               <span key={t} style={TAG_CHIP}>{tagLabel(t)}</span>
             ))}
+          </div>
+        )}
+        {item.usageRights && (
+          <div style={{ fontSize: 11, color: "#8a8278", marginBottom: 4 }}>
+            {RIGHTS_OPTS.find((o) => o.value === item.usageRights)?.label ?? item.usageRights}
           </div>
         )}
         {item.modelNo && <div style={{ fontSize: 11, color: "#8a8278", marginBottom: 4 }}>#{item.modelNo}</div>}
@@ -424,24 +306,21 @@ export default function AssetsPage() {
   const { token } = useAuth();
   const [items, setItems] = useState<ImageAssetItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterQuality, setFilterQuality] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [showUpload, setShowUpload] = useState(false);
-  const [showMatch, setShowMatch] = useState(false);
   const [editItem, setEditItem] = useState<ImageAssetItem | null>(null);
   const [populating, setPopulating] = useState(false);
   const [populateResult, setPopulateResult] = useState<string | null>(null);
   const [populateProgress, setPopulateProgress] = useState<string | null>(null);
-  const [backfilling, setBackfilling] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<string | null>(null);
-  const [backfillProgress, setBackfillProgress] = useState<string | null>(null);
+  const [rerolling, setRerolling] = useState(false);
+  const [rerollResult, setRerollResult] = useState<string | null>(null);
+  const [rerollProgress, setRerollProgress] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filterQuality) params.set("quality", filterQuality);
       if (filterTag) params.set("tag", filterTag);
       const res = await fetch(`/api/admin/assets?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json() as { items: ImageAssetItem[] };
@@ -449,7 +328,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, filterQuality, filterTag]);
+  }, [token, filterTag]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -459,7 +338,6 @@ export default function AssetsPage() {
     setPopulateProgress(null);
 
     try {
-      // Step 1: get tag list and current counts
       const listRes = await fetch("/api/admin/assets/populate", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -470,10 +348,8 @@ export default function AssetsPage() {
       }
       const { tags } = await listRes.json() as {
         tags: { tag: string; count: number; needed: number }[];
-        imagesPerTag: number;
       };
 
-      // searchQuery lookup (mirrors server-side POPULATE_TAGS)
       const SEARCH_QUERIES: Record<string, string> = {
         "supply-chain": "bicycle supply chain", "product-launch": "bicycle new product component",
         "market-news": "bicycle industry market", "trade-show": "bicycle trade show exhibition",
@@ -494,7 +370,6 @@ export default function AssetsPage() {
         return;
       }
 
-      // Step 2: process tags one by one (each request ≈ 10-15s, avoids Vercel timeout)
       let totalAdded = 0;
       let totalSkipped = 0;
       for (let i = 0; i < toFetch.length; i++) {
@@ -527,22 +402,22 @@ export default function AssetsPage() {
     }
   }
 
-  async function backfill() {
-    setBackfilling(true);
-    setBackfillResult(null);
-    setBackfillProgress("查詢沒有配圖的已發布文章…");
+  async function rerollAll() {
+    setRerolling(true);
+    setRerollResult(null);
+    setRerollProgress("查詢已發布文章…");
 
     try {
       const listRes = await fetch("/api/admin/assets/backfill", { headers });
       if (!listRes.ok) {
         const d = await listRes.json() as { error?: string };
-        setBackfillResult(`失敗：${d.error ?? `HTTP ${listRes.status}`}`);
+        setRerollResult(`失敗：${d.error ?? `HTTP ${listRes.status}`}`);
         return;
       }
-      const { posts } = await listRes.json() as { posts: { _id: string; title?: string; slug?: string }[]; count: number };
+      const { posts } = await listRes.json() as { posts: { _id: string; title?: string; slug?: string }[] };
 
       if (!posts.length) {
-        setBackfillResult("沒有已發布的文章，或圖庫和 Pixabay 都無結果");
+        setRerollResult("目前沒有已發布的文章");
         return;
       }
 
@@ -550,7 +425,7 @@ export default function AssetsPage() {
       let skipped = 0;
       for (let i = 0; i < posts.length; i++) {
         const post = posts[i];
-        setBackfillProgress(`配圖中 ${i + 1}/${posts.length}：${post.title ?? post.slug ?? post._id}`);
+        setRerollProgress(`配圖中 ${i + 1}/${posts.length}：${post.title ?? post.slug ?? post._id}`);
 
         const res = await fetch("/api/admin/assets/assign-to-post", {
           method: "POST",
@@ -562,13 +437,13 @@ export default function AssetsPage() {
         else skipped++;
       }
 
-      setBackfillProgress(null);
-      setBackfillResult(`完成：${assigned} 篇文章已重新配圖，${skipped} 篇跳過（無標籤）`);
+      setRerollProgress(null);
+      setRerollResult(`完成：${assigned} 篇文章已重新配圖，${skipped} 篇跳過（無標籤）`);
     } catch (err) {
-      setBackfillResult(`補配失敗：${err instanceof Error ? err.message : String(err)}`);
+      setRerollResult(`配圖失敗：${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setBackfilling(false);
-      setBackfillProgress(null);
+      setRerolling(false);
+      setRerollProgress(null);
     }
   }
 
@@ -581,7 +456,6 @@ export default function AssetsPage() {
     load();
   }
 
-  // Collect all distinct tags from current items for the tag filter chips
   const allTags = Array.from(new Set(items.flatMap((it) => it.tags ?? []))).sort();
 
   return (
@@ -591,23 +465,23 @@ export default function AssetsPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#e8e4df" }}>圖庫管理</h1>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: "#8a8278" }}>
-            {items.length} 張圖片 · 用標籤為每篇文章找合適的配圖
+            {items.length} 張圖片
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => setShowMatch(true)} style={BTN_GHOST}>為文章找配圖…</button>
-          <button onClick={backfill} disabled={backfilling || populating} style={BTN_GHOST}>
-            {backfilling ? "配圖中…" : "重新配圖（全部已發布）"}
+          <button onClick={rerollAll} disabled={rerolling || populating} style={BTN_GHOST}>
+            {rerolling ? "配圖中…" : "重新配圖（全部已發布）"}
           </button>
-          <button onClick={populate} disabled={populating || backfilling} style={BTN_GHOST}>
-            {populating ? "填充中（約 30 秒）…" : "自動填充圖庫"}
+          <button onClick={populate} disabled={populating || rerolling} style={BTN_GHOST}>
+            {populating ? "填充中…" : "自動填充圖庫"}
           </button>
           <button onClick={() => setShowUpload(true)} style={BTN_RED}>＋ 上傳圖片</button>
         </div>
       </div>
-      {(backfillProgress || backfillResult) && (
-        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: backfillResult?.startsWith("失敗") || backfillResult?.startsWith("配圖失敗") ? "#D5352A" : "#4caf50" }}>
-          {backfillProgress ?? backfillResult}
+
+      {(rerollProgress || rerollResult) && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: rerollResult?.startsWith("失敗") || rerollResult?.startsWith("配圖失敗") ? "#D5352A" : "#4caf50" }}>
+          {rerollProgress ?? rerollResult}
         </div>
       )}
       {(populateProgress || populateResult) && (
@@ -615,25 +489,6 @@ export default function AssetsPage() {
           {populateProgress ?? populateResult}
         </div>
       )}
-
-      {/* Quality filter */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-        <button
-          onClick={() => setFilterQuality("")}
-          style={filterQuality === "" ? PILL_ON : PILL_OFF}
-        >
-          全部
-        </button>
-        {QUALITY_OPTS.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => setFilterQuality(filterQuality === o.value ? "" : o.value)}
-            style={filterQuality === o.value ? PILL_ON : PILL_OFF}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
 
       {/* Tag filter */}
       {allTags.length > 0 && (
@@ -663,7 +518,7 @@ export default function AssetsPage() {
         <div style={{ color: "#8a8278", textAlign: "center", padding: "60px 0" }}>載入中…</div>
       ) : items.length === 0 ? (
         <div style={{ color: "#8a8278", textAlign: "center", padding: "60px 0" }}>
-          {filterQuality || filterTag ? "沒有符合條件的圖片" : "圖庫是空的，點「上傳圖片」開始建立"}
+          {filterTag ? "沒有符合條件的圖片" : "圖庫是空的，點「上傳圖片」開始建立"}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
@@ -678,7 +533,6 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* Modals */}
       {showUpload && (
         <UploadModal
           token={token}
@@ -693,9 +547,6 @@ export default function AssetsPage() {
           onDone={() => { setEditItem(null); load(); }}
           onClose={() => setEditItem(null)}
         />
-      )}
-      {showMatch && (
-        <MatchPanel token={token} onClose={() => setShowMatch(false)} />
       )}
     </>
   );
@@ -759,16 +610,16 @@ const THUMB: React.CSSProperties = {
 };
 
 const TAG_CHIP: React.CSSProperties = {
-  background: "#1e1c1a", border: "1px solid #2a2824", borderRadius: 3,
-  color: "#8a8278", fontSize: 10, padding: "1px 5px",
+  fontSize: 10, padding: "2px 6px", background: "#1e1c1a", border: "1px solid #3a3834",
+  borderRadius: 3, color: "#8a8278",
 };
 
 const PILL_ON: React.CSSProperties = {
-  background: "#D5352A", color: "#fff", border: "1px solid #D5352A", borderRadius: 4,
-  padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+  background: "#D5352A", color: "#fff", border: "1px solid #D5352A",
+  borderRadius: 20, padding: "4px 12px", fontSize: 12, cursor: "pointer", fontWeight: 600,
 };
 
 const PILL_OFF: React.CSSProperties = {
-  background: "none", color: "#8a8278", border: "1px solid #2a2824", borderRadius: 4,
-  padding: "5px 12px", fontSize: 12, cursor: "pointer",
+  background: "none", color: "#8a8278", border: "1px solid #2a2824",
+  borderRadius: 20, padding: "4px 12px", fontSize: 12, cursor: "pointer",
 };
