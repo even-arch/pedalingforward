@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   }
 
   const posts = await writeClient.fetch<{ _id: string; title?: string; slug?: string }[]>(
-    `*[_type == "post" && defined(publishedAt) && !defined(mainImage.asset)] {
+    `*[_type == "post" && defined(publishedAt)] {
       _id,
       "title": coalesce(title.en, title.zh, "untitled"),
       "slug": slug.current

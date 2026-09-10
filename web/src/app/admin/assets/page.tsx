@@ -542,7 +542,7 @@ export default function AssetsPage() {
       const { posts } = await listRes.json() as { posts: { _id: string; title?: string; slug?: string }[]; count: number };
 
       if (!posts.length) {
-        setBackfillResult("所有已發布文章都已有配圖");
+        setBackfillResult("沒有已發布的文章，或圖庫和 Pixabay 都無結果");
         return;
       }
 
@@ -555,7 +555,7 @@ export default function AssetsPage() {
         const res = await fetch("/api/admin/assets/assign-to-post", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ postId: post._id }),
+          body: JSON.stringify({ postId: post._id, force: true }),
         });
         const d = await res.json() as { ok?: boolean; source?: string };
         if (d.ok && d.source !== "no-tags") assigned++;
@@ -563,7 +563,7 @@ export default function AssetsPage() {
       }
 
       setBackfillProgress(null);
-      setBackfillResult(`完成：${assigned} 篇文章已配圖，${skipped} 篇跳過（無標籤或已有圖）`);
+      setBackfillResult(`完成：${assigned} 篇文章已重新配圖，${skipped} 篇跳過（無標籤）`);
     } catch (err) {
       setBackfillResult(`補配失敗：${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -597,7 +597,7 @@ export default function AssetsPage() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => setShowMatch(true)} style={BTN_GHOST}>為文章找配圖…</button>
           <button onClick={backfill} disabled={backfilling || populating} style={BTN_GHOST}>
-            {backfilling ? "補配中…" : "補配已發布文章"}
+            {backfilling ? "配圖中…" : "重新配圖（全部已發布）"}
           </button>
           <button onClick={populate} disabled={populating || backfilling} style={BTN_GHOST}>
             {populating ? "填充中（約 30 秒）…" : "自動填充圖庫"}
@@ -606,7 +606,7 @@ export default function AssetsPage() {
         </div>
       </div>
       {(backfillProgress || backfillResult) && (
-        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: backfillResult?.startsWith("失敗") || backfillResult?.startsWith("補配失敗") ? "#D5352A" : "#4caf50" }}>
+        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: backfillResult?.startsWith("失敗") || backfillResult?.startsWith("配圖失敗") ? "#D5352A" : "#4caf50" }}>
           {backfillProgress ?? backfillResult}
         </div>
       )}

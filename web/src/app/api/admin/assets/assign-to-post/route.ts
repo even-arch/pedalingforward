@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { postId } = await req.json() as { postId: string };
+  const { postId, force } = await req.json() as { postId: string; force?: boolean };
   if (!postId) return Response.json({ error: "postId required" }, { status: 400 });
 
   // Fetch post's mediaTags and check if mainImage is already set
@@ -31,8 +31,8 @@ export async function POST(req: Request) {
 
   if (!post) return Response.json({ error: "Post not found" }, { status: 404 });
 
-  // Skip if mainImage is already set — preserve manual curation
-  if (post.mainImage?.asset?._ref) {
+  // Skip if mainImage is already set — unless force=true (re-roll)
+  if (!force && post.mainImage?.asset?._ref) {
     return Response.json({ ok: true, source: "already-set" });
   }
 
