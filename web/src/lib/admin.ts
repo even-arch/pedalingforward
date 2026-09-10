@@ -11,10 +11,11 @@ const readClient = createClient({
 let cachedPassword: string | null = null;
 let cachedApiKey: string | null = null;
 let cachedOpenAIKey: string | null = null;
+let cachedPixabayKey: string | null = null;
 
 async function getSettings() {
-  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; openaiApiKey?: string; firecrawlApiKey?: string; telegramBotToken?: string; telegramChatId?: string; aiWritingRules?: string}>(
-    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, openaiApiKey, firecrawlApiKey, telegramBotToken, telegramChatId, aiWritingRules}`,
+  return readClient.fetch<{adminPassword?: string; anthropicApiKey?: string; openaiApiKey?: string; firecrawlApiKey?: string; pixabayApiKey?: string; telegramBotToken?: string; telegramChatId?: string; aiWritingRules?: string}>(
+    `*[_type == "siteSettings"][0]{adminPassword, anthropicApiKey, openaiApiKey, firecrawlApiKey, pixabayApiKey, telegramBotToken, telegramChatId, aiWritingRules}`,
     {},
     { cache: "no-store" }
   );
@@ -44,6 +45,14 @@ export async function getOpenAIKey(): Promise<string | null> {
   return cachedOpenAIKey;
 }
 
+export async function getPixabayKey(): Promise<string | null> {
+  if (process.env.PIXABAY_API_KEY) return process.env.PIXABAY_API_KEY;
+  if (cachedPixabayKey) return cachedPixabayKey;
+  const settings = await getSettings();
+  cachedPixabayKey = settings?.pixabayApiKey ?? null;
+  return cachedPixabayKey;
+}
+
 export async function getAiWritingRules(): Promise<string> {
   const settings = await getSettings();
   return settings?.aiWritingRules ?? "Write concise, professional trade news for the global bicycle industry.";
@@ -63,4 +72,5 @@ export function invalidateSettingsCache() {
   cachedPassword = null;
   cachedApiKey = null;
   cachedOpenAIKey = null;
+  cachedPixabayKey = null;
 }

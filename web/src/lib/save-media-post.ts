@@ -30,7 +30,7 @@ export async function saveDraftPost(
   sourceItemIds: string[],
   audience = "both",
   primaryUrl?: string,
-): Promise<{ postId: string; slug: string }> {
+): Promise<{ postId: string; slug: string; mediaTags: string[] }> {
   // Fetch source items
   let sources: Source[] = [];
   let combinedTags: string[] = [];
@@ -78,5 +78,5 @@ export async function saveDraftPost(
     );
   }
 
-  return { postId: created._id, slug };
+  return { postId: created._id, slug, mediaTags: combinedTags };
 }

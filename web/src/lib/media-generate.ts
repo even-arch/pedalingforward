@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getAnthropicKey, getAiWritingRules } from "./admin";
+import { getAnthropicKey, getAiWritingRules, getPixabayKey } from "./admin";
 import { writeClient } from "@/sanity/lib/write-client";
 import { db } from "./db";
 import { saveDraftPost, type GeneratedArticle } from "./save-media-post";
+import { fetchAndAttachImage } from "./fetch-image";
 
 const LOCALES = ["en", "zh", "ja", "de"] as const;
 
@@ -124,6 +125,12 @@ export async function processGenerationJob(jobId: string): Promise<void> {
     if (job.autoSave) {
       const saved = await saveDraftPost(parsed, job.itemIds, job.audience);
       savedPostId = saved.postId;
+
+      // Fetch a relevant image from Pixabay and attach it as mainImage
+      const pixabayKey = await getPixabayKey();
+      if (pixabayKey && saved.mediaTags.length) {
+        await fetchAndAttachImage(savedPostId, saved.mediaTags, pixabayKey);
+      }
     }
 
     await db.mediaGenerationJob.update({

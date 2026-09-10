@@ -8,6 +8,7 @@ type Settings = {
   anthropicApiKey?: string;
   openaiApiKey?: string;
   firecrawlApiKey?: string;
+  pixabayApiKey?: string;
   telegramBotToken?: string;
   telegramChatId?: string;
   aiWritingRules?: string;
@@ -94,6 +95,11 @@ export default function SettingsPage() {
             <label style={labelStyle}>Firecrawl API Key</label>
             <input type="password" value={settings.firecrawlApiKey ?? ""} onChange={set("firecrawlApiKey")} style={inputStyle} />
             <div style={{ fontSize: 11, color: "#9a9490", marginTop: 4 }}>用來抓取原文全文。沒有也行，會改用 RSS 摘要。</div>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Pixabay API Key</label>
+            <input type="password" value={settings.pixabayApiKey ?? ""} onChange={set("pixabayApiKey")} style={inputStyle} />
+            <div style={{ fontSize: 11, color: "#9a9490", marginTop: 4 }}>文章收錄時自動從 Pixabay 抓自行車相關圖片作為封面。免費，pixabay.com/api/docs 申請。</div>
           </div>
         </div>
 

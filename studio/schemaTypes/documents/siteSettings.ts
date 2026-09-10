@@ -111,6 +111,13 @@ export const siteSettings = defineType({
       description: 'For fetching full article text. Also from FIRECRAWL_API_KEY env var.',
     }),
     defineField({
+      name: 'pixabayApiKey',
+      title: 'Pixabay API Key',
+      type: 'string',
+      group: 'admin',
+      description: 'Auto-fetches bicycle images for articles. Also from PIXABAY_API_KEY env var. Get a free key at pixabay.com/api/docs.',
+    }),
+    defineField({
       name: 'telegramBotToken',
       title: 'Telegram Bot Token',
       type: 'string',
