@@ -12,6 +12,28 @@ function verifyCronOrAdmin(req: Request): boolean | Promise<boolean> {
   return checkAdminAuth(req);
 }
 
+// Vercel cron sends GET — same logic as cron branch of POST
+export async function GET(req: Request) {
+  if (!(await verifyCronOrAdmin(req))) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  await db.tradeIngestRun.updateMany({
+    where: { status: "running", startedAt: { lt: tenMinutesAgo } },
+    data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
+  }).catch(() => { /* ignore */ });
+  try {
+    const results = await ingestComtradeUpdates("cron", 400);
+    const totalSaved = results.reduce((s, r) => s + r.saved, 0);
+    return Response.json({ ok: true, results, totalSaved });
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   if (!(await verifyCronOrAdmin(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
