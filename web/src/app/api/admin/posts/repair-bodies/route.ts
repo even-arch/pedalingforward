@@ -24,14 +24,12 @@ type RawPost = {
 
 const LOCALES = ["en", "zh", "ja", "de"] as const;
 
-// Returns true if this block is the old "summary" duplicate:
-// a plain style:normal paragraph (no listItem) — all new body blocks are bullets.
-function isDuplicateLeadBlock(block: PTBlock): boolean {
-  return (
-    block._type === "block" &&
-    block.style === "normal" &&
-    !block.listItem
-  );
+// All legitimate body blocks are bullets. Any style:"normal" non-bullet block is either:
+//   - the old summary duplicate (prepended by an older buildBody)
+//   - a "Source: X" link block (appended by save-media-post's old buildBody)
+// Both should be removed; mediaItems (情報來源) replaces source links.
+function isStaleBlock(block: PTBlock): boolean {
+  return block._type === "block" && block.style === "normal" && !block.listItem;
 }
 
 export async function POST(req: Request) {
@@ -54,8 +52,9 @@ export async function POST(req: Request) {
     for (const locale of LOCALES) {
       const blocks = post.body?.[locale];
       if (!blocks || blocks.length === 0) continue;
-      if (isDuplicateLeadBlock(blocks[0])) {
-        patch[`body.${locale}`] = blocks.slice(1);
+      const cleaned = blocks.filter((b) => !isStaleBlock(b));
+      if (cleaned.length !== blocks.length) {
+        patch[`body.${locale}`] = cleaned;
       }
     }
 

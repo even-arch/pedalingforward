@@ -7,10 +7,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { article, sourceItemIds, primaryUrl, audience } = body as {
+  const { article, sourceItemIds, audience } = body as {
     article?: GeneratedArticle;
     sourceItemIds?: string[];
-    primaryUrl?: string;
     audience?: string;
   };
 
@@ -22,7 +21,6 @@ export async function POST(req: Request) {
     article,
     sourceItemIds ?? [],
     audience ?? "both",
-    primaryUrl
   );
 
   return Response.json({ ok: true, postId, slug });

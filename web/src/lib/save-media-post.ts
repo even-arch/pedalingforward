@@ -7,18 +7,12 @@ let _key = 0;
 function k() { return `k${(++_key).toString(36)}`; }
 
 type PTBlock = { _type: string; _key: string; style?: string; listItem?: string; level?: number; children: unknown[]; markDefs: unknown[] };
-type Source = { url: string; name: string };
 
-function buildBody(keyPoints: string[], sources: Source[]): PTBlock[] {
-  const blocks: PTBlock[] = [];
-  for (const point of keyPoints.slice(0, 3)) {
-    blocks.push({ _type: "block", _key: k(), style: "normal", listItem: "bullet", level: 1, markDefs: [], children: [{ _type: "span", _key: k(), text: point, marks: [] }] });
-  }
-  for (const src of sources.filter((s) => s.url)) {
-    const linkKey = k();
-    blocks.push({ _type: "block", _key: k(), style: "normal", markDefs: [{ _type: "link", _key: linkKey, href: src.url, blank: true }], children: [{ _type: "span", _key: k(), text: `Source: ${src.name || src.url}`, marks: [linkKey] }] });
-  }
-  return blocks;
+function buildBody(keyPoints: string[]): PTBlock[] {
+  return keyPoints.slice(0, 3).map((point) => ({
+    _type: "block", _key: k(), style: "normal", listItem: "bullet", level: 1, markDefs: [],
+    children: [{ _type: "span", _key: k(), text: point, marks: [] }],
+  }));
 }
 
 function slugify(text: string) {
@@ -29,22 +23,16 @@ export async function saveDraftPost(
   article: GeneratedArticle,
   sourceItemIds: string[],
   audience = "both",
-  primaryUrl?: string,
 ): Promise<{ postId: string; slug: string; mediaTags: string[] }> {
-  // Fetch source items
-  let sources: Source[] = [];
+  // Fetch source items for tags
   let combinedTags: string[] = [];
   if (sourceItemIds.length) {
-    const items = await writeClient.fetch<{ _id: string; url?: string; sourceName?: string; tags?: string[] }[]>(
-      `*[_type == "mediaItem" && _id in $ids]{_id, url, sourceName, tags}`,
+    const items = await writeClient.fetch<{ _id: string; tags?: string[] }[]>(
+      `*[_type == "mediaItem" && _id in $ids]{_id, tags}`,
       { ids: sourceItemIds },
       { cache: "no-store" }
     );
-    sources = items.map((i) => ({ url: i.url ?? "", name: i.sourceName ?? "" }));
     combinedTags = [...new Set(items.flatMap((i) => i.tags ?? []))];
-  }
-  if (!sources.length && primaryUrl) {
-    sources = [{ url: primaryUrl, name: "" }];
   }
 
   const slug = slugify(article.en.title);
@@ -60,12 +48,11 @@ export async function saveDraftPost(
     excerpt: { _type: "localizedText", en: article.en.summary, zh: article.zh.summary, ja: article.ja.summary, de: article.de.summary },
     body: {
       _type: "localizedBlockContent",
-      en: buildBody(article.en.keyPoints, sources),
-      zh: buildBody(article.zh.keyPoints, sources),
-      ja: buildBody(article.ja.keyPoints, sources),
-      de: buildBody(article.de.keyPoints, sources),
+      en: buildBody(article.en.keyPoints),
+      zh: buildBody(article.zh.keyPoints),
+      ja: buildBody(article.ja.keyPoints),
+      de: buildBody(article.de.keyPoints),
     },
-    sourceUrl: sources[0]?.url,
   };
 
   const created = await writeClient.create(postDoc);
