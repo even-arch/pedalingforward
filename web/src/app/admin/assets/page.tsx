@@ -454,8 +454,11 @@ export default function AssetsPage() {
     setDedupResult(null);
     try {
       const res = await fetch("/api/admin/assets/deduplicate", { method: "POST", headers });
-      const d = await res.json() as { ok?: boolean; backfilled?: number; deleted?: number; total?: number; error?: string };
+      const text = await res.text();
+      let d: { ok?: boolean; backfilled?: number; deleted?: number; total?: number; error?: string } = {};
+      try { d = JSON.parse(text); } catch { /* non-JSON response — likely a timeout */ }
       if (!res.ok) { setDedupResult(`失敗：${d.error ?? `HTTP ${res.status}`}`); return; }
+      if (!d.ok) { setDedupResult(`失敗：伺服器沒有回應，可能超時，請稍後再試`); return; }
       setDedupResult(`完成：補填 ${d.backfilled} 個 Pixabay ID，刪除 ${d.deleted} 張重複圖（共 ${d.total} 張）`);
       load();
     } catch (err) {

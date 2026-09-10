@@ -10,7 +10,8 @@ type RawAsset = {
   source?: string;
 };
 
-// POST — backfill pixabayId from source field, then delete duplicates
+const PIXABAY_RE = /Pixabay #(\d+)/;
+
 export async function POST(req: Request) {
   if (!(await checkAdminAuth(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,23 +23,22 @@ export async function POST(req: Request) {
     { cache: "no-store" }
   );
 
-  // Step 1: backfill pixabayId from source string "Pixabay #12345 (user) · ..."
+  // Step 1: backfill pixabayId from source — sequential to avoid rate limits
   let backfilled = 0;
-  const PIXABAY_RE = /Pixabay #(\d+)/;
+  for (const a of all) {
+    if (a.pixabayId || !a.source) continue;
+    const m = a.source.match(PIXABAY_RE);
+    if (!m) continue;
+    try {
+      await writeClient.patch(a._id).set({ pixabayId: m[1] }).commit();
+      a.pixabayId = m[1];
+      backfilled++;
+    } catch {
+      // skip on error, continue with others
+    }
+  }
 
-  await Promise.all(
-    all
-      .filter((a) => !a.pixabayId && a.source)
-      .map(async (a) => {
-        const m = a.source!.match(PIXABAY_RE);
-        if (!m) return;
-        await writeClient.patch(a._id).set({ pixabayId: m[1] }).commit();
-        a.pixabayId = m[1]; // update in-memory so dedup step sees it
-        backfilled++;
-      })
-  );
-
-  // Step 2: group by pixabayId, keep the oldest, delete the rest
+  // Step 2: group by pixabayId, keep oldest, delete extras — sequential
   const byPixabayId = new Map<string, RawAsset[]>();
   for (const a of all) {
     if (!a.pixabayId) continue;
@@ -50,11 +50,15 @@ export async function POST(req: Request) {
   let deleted = 0;
   for (const [, group] of byPixabayId) {
     if (group.length <= 1) continue;
-    // Keep oldest (first created), delete the rest
     group.sort((a, b) => a._createdAt.localeCompare(b._createdAt));
-    const toDelete = group.slice(1);
-    await Promise.all(toDelete.map((a) => writeClient.delete(a._id)));
-    deleted += toDelete.length;
+    for (const dup of group.slice(1)) {
+      try {
+        await writeClient.delete(dup._id);
+        deleted++;
+      } catch {
+        // skip on error
+      }
+    }
   }
 
   return Response.json({ ok: true, backfilled, deleted, total: all.length });
