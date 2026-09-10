@@ -15,7 +15,6 @@ type DraftPost = {
   title?: Record<LocaleKey, string>;
   excerpt?: Record<LocaleKey, string>;
   slug?: { current: string };
-  sourceUrl?: string;
   mediaTags?: string[];
   mediaItems?: { _id: string; title: string; url: string; sourceName?: string }[];
 };
@@ -40,7 +39,6 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
   });
   const [editorialNote, setEditorialNote] = useState(post.editorialNote ?? "");
   const [audience, setAudience] = useState(post.audience ?? "both");
-  const [sourceUrl, setSourceUrl] = useState(post.sourceUrl ?? "");
   const [activeLocale, setActiveLocale] = useState<LocaleKey>("zh");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -56,7 +54,7 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
       const res = await fetch("/api/admin/posts", {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ id: post._id, action: "update", title, excerpt, editorialNote, audience, sourceUrl }),
+        body: JSON.stringify({ id: post._id, action: "update", title, excerpt, editorialNote, audience }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       showToast("✅ 已儲存");
@@ -73,7 +71,7 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
       // 1. Save metadata
       await fetch("/api/admin/posts", {
         method: "PATCH", headers,
-        body: JSON.stringify({ id: post._id, action: "update", title, excerpt, editorialNote, audience, sourceUrl }),
+        body: JSON.stringify({ id: post._id, action: "update", title, excerpt, editorialNote, audience }),
       });
       // 2. Assign best-match image from library (falls back to Pixabay if library miss)
       await fetch("/api/admin/assets/assign-to-post", {
@@ -132,11 +130,6 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
                 style={{ ...inputBase, cursor: "pointer" }}>
                 {AUDIENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-            </div>
-            <div style={{ flex: 2, minWidth: 200 }}>
-              <label style={labelBase}>原文連結</label>
-              <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)}
-                placeholder="https://..." style={inputBase} />
             </div>
           </div>
 
