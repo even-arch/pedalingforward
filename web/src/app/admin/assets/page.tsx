@@ -315,6 +315,8 @@ export default function AssetsPage() {
   const [rerolling, setRerolling] = useState(false);
   const [rerollResult, setRerollResult] = useState<string | null>(null);
   const [rerollProgress, setRerollProgress] = useState<string | null>(null);
+  const [deduping, setDeduping] = useState(false);
+  const [dedupResult, setDedupResult] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
@@ -447,6 +449,22 @@ export default function AssetsPage() {
     }
   }
 
+  async function dedup() {
+    setDeduping(true);
+    setDedupResult(null);
+    try {
+      const res = await fetch("/api/admin/assets/deduplicate", { method: "POST", headers });
+      const d = await res.json() as { ok?: boolean; backfilled?: number; deleted?: number; total?: number; error?: string };
+      if (!res.ok) { setDedupResult(`失敗：${d.error ?? `HTTP ${res.status}`}`); return; }
+      setDedupResult(`完成：補填 ${d.backfilled} 個 Pixabay ID，刪除 ${d.deleted} 張重複圖（共 ${d.total} 張）`);
+      load();
+    } catch (err) {
+      setDedupResult(`失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDeduping(false);
+    }
+  }
+
   async function deleteItem(id: string) {
     await fetch("/api/admin/assets", {
       method: "DELETE",
@@ -469,7 +487,10 @@ export default function AssetsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={rerollAll} disabled={rerolling || populating} style={BTN_GHOST}>
+          <button onClick={dedup} disabled={deduping || rerolling || populating} style={BTN_GHOST}>
+            {deduping ? "清理中…" : "清除重複圖片"}
+          </button>
+          <button onClick={rerollAll} disabled={rerolling || populating || deduping} style={BTN_GHOST}>
             {rerolling ? "配圖中…" : "重新配圖（全部已發布）"}
           </button>
           <button onClick={populate} disabled={populating || rerolling} style={BTN_GHOST}>
@@ -479,6 +500,11 @@ export default function AssetsPage() {
         </div>
       </div>
 
+      {dedupResult && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: dedupResult.startsWith("失敗") ? "#D5352A" : "#4caf50" }}>
+          {dedupResult}
+        </div>
+      )}
       {(rerollProgress || rerollResult) && (
         <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: rerollResult?.startsWith("失敗") || rerollResult?.startsWith("配圖失敗") ? "#D5352A" : "#4caf50" }}>
           {rerollProgress ?? rerollResult}
