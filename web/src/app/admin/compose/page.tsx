@@ -407,12 +407,13 @@ export default function ComposePage() {
               </div>
               <div style={{ flexShrink: 0, textAlign: "right", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
                 {post.publishedAt ? (
-                  <div style={{ fontSize: 12, color: "#c8c4c0", fontWeight: 600, letterSpacing: "0.01em" }}>
+                  <div style={{ fontSize: 12, color: "#c8c4c0", fontWeight: 600 }}>
                     {fmtNewsDate(post.publishedAt)}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11, color: "#5a5650" }}>（無日期）</div>
+                  <div style={{ fontSize: 11, color: "#5a5650" }}>（來源日期未知）</div>
                 )}
+                <div style={{ fontSize: 10, color: "#5a5650" }}>收錄 {fmt(post._createdAt)}</div>
                 {activeStatus === "draft" && !post.editorialNote && (
                   <div style={{ fontSize: 11, color: "#D5352A" }}>⚠ 缺備注</div>
                 )}
