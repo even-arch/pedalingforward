@@ -472,17 +472,17 @@ export default function AssetsPage() {
 
       // searchQuery lookup (mirrors server-side POPULATE_TAGS)
       const SEARCH_QUERIES: Record<string, string> = {
-        "supply-chain": "bicycle factory manufacturing", "product-launch": "new bicycle component",
-        "market-news": "cycling industry business", "trade-show": "bicycle trade show exhibition",
-        "retail": "bicycle shop store", "regulation": "bicycle transportation policy",
-        "tech": "bicycle technology innovation", "e-bike": "electric bicycle ebike",
-        "urban": "city cycling commute", "cargo-bike": "cargo bicycle utility",
-        "gravel": "gravel cycling adventure", "mtb": "mountain bike trail", "road": "road cycling race",
-        "shimano": "shimano bicycle component", "sram": "sram bicycle drivetrain",
-        "bosch": "bosch electric bike motor", "trek": "trek bicycle", "giant": "giant bicycle",
-        "specialized": "specialized bicycle", "merida": "merida bicycle",
-        "carbon-fiber": "carbon fiber bicycle frame", "hydraulic-brakes": "bicycle disc brake",
-        "suspension": "bike suspension fork", "derailleur": "bicycle derailleur gear", "frame": "bicycle frame",
+        "supply-chain": "bicycle supply chain", "product-launch": "bicycle new product component",
+        "market-news": "bicycle industry market", "trade-show": "bicycle trade show exhibition",
+        "retail": "bicycle shop retail", "regulation": "bicycle transport regulation",
+        "tech": "bicycle technology innovation", "e-bike": "bicycle electric ebike",
+        "urban": "bicycle urban city commute", "cargo-bike": "bicycle cargo utility",
+        "gravel": "bicycle gravel adventure", "mtb": "bicycle mountain trail", "road": "bicycle road racing",
+        "shimano": "bicycle shimano component", "sram": "bicycle sram drivetrain",
+        "bosch": "bicycle bosch ebike motor", "trek": "bicycle trek", "giant": "bicycle giant",
+        "specialized": "bicycle specialized", "merida": "bicycle merida",
+        "carbon-fiber": "bicycle carbon fiber frame", "hydraulic-brakes": "bicycle disc brake hydraulic",
+        "suspension": "bicycle suspension fork", "derailleur": "bicycle derailleur gear", "frame": "bicycle frame",
       };
 
       const toFetch = tags.filter((t) => t.needed > 0);
