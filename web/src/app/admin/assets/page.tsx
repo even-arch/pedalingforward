@@ -315,8 +315,6 @@ export default function AssetsPage() {
   const [rerolling, setRerolling] = useState(false);
   const [rerollResult, setRerollResult] = useState<string | null>(null);
   const [rerollProgress, setRerollProgress] = useState<string | null>(null);
-  const [autoTagging, setAutoTagging] = useState(false);
-  const [autoTagResult, setAutoTagResult] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
@@ -449,32 +447,6 @@ export default function AssetsPage() {
     }
   }
 
-  async function autoTagPosts() {
-    setAutoTagging(true);
-    setAutoTagResult(null);
-    try {
-      const res = await fetch("/api/admin/posts/auto-tag", {
-        method: "POST",
-        headers,
-      });
-      const d = await res.json() as { ok?: boolean; tagged?: number; total?: number; message?: string; errors?: string[]; error?: string };
-      if (!res.ok) {
-        setAutoTagResult(`失敗：${d.error ?? `HTTP ${res.status}`}`);
-        return;
-      }
-      if (d.message) {
-        setAutoTagResult(d.message);
-        return;
-      }
-      const errNote = d.errors?.length ? `（${d.errors.length} 批次出錯）` : "";
-      setAutoTagResult(`完成：${d.tagged}/${d.total} 篇文章已自動補標籤${errNote}`);
-    } catch (err) {
-      setAutoTagResult(`失敗：${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setAutoTagging(false);
-    }
-  }
-
   async function deleteItem(id: string) {
     await fetch("/api/admin/assets", {
       method: "DELETE",
@@ -497,10 +469,7 @@ export default function AssetsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={autoTagPosts} disabled={autoTagging || rerolling || populating} style={BTN_GHOST}>
-            {autoTagging ? "補標籤中…" : "AI 補標籤"}
-          </button>
-          <button onClick={rerollAll} disabled={rerolling || populating || autoTagging} style={BTN_GHOST}>
+          <button onClick={rerollAll} disabled={rerolling || populating} style={BTN_GHOST}>
             {rerolling ? "配圖中…" : "重新配圖（全部已發布）"}
           </button>
           <button onClick={populate} disabled={populating || rerolling} style={BTN_GHOST}>
@@ -510,11 +479,6 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      {autoTagResult && (
-        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: autoTagResult.startsWith("失敗") ? "#D5352A" : "#4caf50" }}>
-          {autoTagResult}
-        </div>
-      )}
       {(rerollProgress || rerollResult) && (
         <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: rerollResult?.startsWith("失敗") || rerollResult?.startsWith("配圖失敗") ? "#D5352A" : "#4caf50" }}>
           {rerollProgress ?? rerollResult}

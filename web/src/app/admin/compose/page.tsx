@@ -200,6 +200,7 @@ export default function ComposePage() {
   const [editing, setEditing] = useState<DraftPost | null>(null);
   const [unpublishing, setUnpublishing] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [autoTagging, setAutoTagging] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -217,6 +218,23 @@ export default function ComposePage() {
   useEffect(() => { load(); }, [load]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500); }
+
+  async function autoTagPublished() {
+    setAutoTagging(true);
+    try {
+      const res = await fetch("/api/admin/posts/auto-tag", { method: "POST", headers });
+      const d = await res.json() as { ok?: boolean; tagged?: number; total?: number; message?: string; errors?: string[]; error?: string };
+      if (!res.ok) { showToast(`失敗：${d.error ?? `HTTP ${res.status}`}`); return; }
+      if (d.message) { showToast(d.message); return; }
+      const errNote = d.errors?.length ? `（${d.errors.length} 批次出錯）` : "";
+      showToast(`完成：${d.tagged}/${d.total} 篇文章已自動補標籤${errNote}`);
+      load();
+    } catch (err) {
+      showToast(`失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setAutoTagging(false);
+    }
+  }
 
   async function unpublish(id: string) {
     setUnpublishing(id);
@@ -245,6 +263,12 @@ export default function ComposePage() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>文章管理</h1>
+        {activeStatus === "published" && (
+          <button onClick={autoTagPublished} disabled={autoTagging}
+            style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+            {autoTagging ? "補標籤中…" : "AI 補標籤（無標籤文章）"}
+          </button>
+        )}
         <button onClick={load} style={{ marginLeft: "auto", padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           重新整理
         </button>
