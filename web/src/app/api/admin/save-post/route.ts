@@ -1,6 +1,5 @@
-import { checkAdminAuth, getPixabayKey } from "@/lib/admin";
+import { checkAdminAuth } from "@/lib/admin";
 import { saveDraftPost, type GeneratedArticle } from "@/lib/save-media-post";
-import { fetchAndAttachImage } from "@/lib/fetch-image";
 
 export async function POST(req: Request) {
   if (!(await checkAdminAuth(req))) {
@@ -19,18 +18,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "article required" }, { status: 400 });
   }
 
-  const { postId, slug, mediaTags } = await saveDraftPost(
+  const { postId, slug } = await saveDraftPost(
     article,
     sourceItemIds ?? [],
     audience ?? "both",
     primaryUrl
   );
-
-  // Fetch a relevant image from Pixabay — best-effort, does not block the response
-  const pixabayKey = await getPixabayKey();
-  if (pixabayKey && mediaTags.length) {
-    fetchAndAttachImage(postId, mediaTags, pixabayKey).catch(() => {});
-  }
 
   return Response.json({ ok: true, postId, slug });
 }

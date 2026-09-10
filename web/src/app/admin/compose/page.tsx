@@ -69,11 +69,17 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
   async function publish() {
     setPublishing(true);
     try {
-      // Save first, then publish
+      // 1. Save metadata
       await fetch("/api/admin/posts", {
         method: "PATCH", headers,
         body: JSON.stringify({ id: post._id, action: "update", title, excerpt, editorialNote, audience, sourceUrl }),
       });
+      // 2. Assign best-match image from library (falls back to Pixabay if library miss)
+      await fetch("/api/admin/assets/assign-to-post", {
+        method: "POST", headers,
+        body: JSON.stringify({ postId: post._id }),
+      });
+      // 3. Publish
       const res = await fetch("/api/admin/posts", {
         method: "PATCH", headers,
         body: JSON.stringify({ id: post._id, action: "publish" }),

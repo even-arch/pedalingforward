@@ -426,10 +426,11 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [filterQuality, setFilterQuality] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
-  const [tagSearch, setTagSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [showMatch, setShowMatch] = useState(false);
   const [editItem, setEditItem] = useState<ImageAssetItem | null>(null);
+  const [populating, setPopulating] = useState(false);
+  const [populateResult, setPopulateResult] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
@@ -447,6 +448,24 @@ export default function AssetsPage() {
   }, [token, filterQuality, filterTag]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function populate() {
+    setPopulating(true);
+    setPopulateResult(null);
+    try {
+      const res = await fetch("/api/admin/assets/populate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json() as { totalAdded: number; totalSkipped: number; totalTags: number };
+      setPopulateResult(`完成：新增 ${data.totalAdded} 張，已有足夠圖片的標籤跳過 ${data.totalSkipped}/${data.totalTags}`);
+      load();
+    } catch {
+      setPopulateResult("填充失敗，請確認 Pixabay API key 是否已設定");
+    } finally {
+      setPopulating(false);
+    }
+  }
 
   async function deleteItem(id: string) {
     await fetch("/api/admin/assets", {
@@ -472,9 +491,17 @@ export default function AssetsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => setShowMatch(true)} style={BTN_GHOST}>為文章找配圖…</button>
+          <button onClick={populate} disabled={populating} style={BTN_GHOST}>
+            {populating ? "填充中（約 30 秒）…" : "自動填充圖庫"}
+          </button>
           <button onClick={() => setShowUpload(true)} style={BTN_RED}>＋ 上傳圖片</button>
         </div>
       </div>
+      {populateResult && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: "#4caf50" }}>
+          {populateResult}
+        </div>
+      )}
 
       {/* Quality filter */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
