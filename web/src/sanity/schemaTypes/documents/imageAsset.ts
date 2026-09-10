@@ -59,6 +59,11 @@ export const imageAsset = defineType({
       type: 'string',
     }),
     defineField({
+      name: 'pixabayId',
+      title: 'Pixabay ID',
+      type: 'string',
+    }),
+    defineField({
       name: 'source',
       title: 'Source',
       type: 'string',

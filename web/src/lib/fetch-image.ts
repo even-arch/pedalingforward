@@ -1,4 +1,5 @@
 import { writeClient } from "@/sanity/lib/write-client";
+import { getBlockedPixabayIds } from "@/lib/pixabay-blocklist";
 
 // Tags that carry no topical signal — excluded from query building
 const GEO_TAGS = new Set([
@@ -96,13 +97,24 @@ export async function fetchAndAttachImage(
   try {
     const query = buildQuery(mediaTags);
 
+    // Fetch blocklist + existing library IDs in parallel to filter duplicates
+    const [blocked, existingIds] = await Promise.all([
+      getBlockedPixabayIds(),
+      writeClient.fetch<string[]>(
+        `*[_type == "imageAsset" && defined(pixabayId)].pixabayId`,
+        {},
+        { cache: "no-store" }
+      ),
+    ]);
+    const existingSet = new Set(existingIds);
+
     const apiUrl =
       `https://pixabay.com/api/?key=${pixabayKey}` +
       `&q=${encodeURIComponent(query)}` +
       `&image_type=photo` +
       `&orientation=horizontal` +
       `&min_width=1000` +
-      `&per_page=5` +
+      `&per_page=15` +
       `&safesearch=true` +
       `&order=popular`;
 
@@ -110,10 +122,14 @@ export async function fetchAndAttachImage(
     if (!apiRes.ok) return false;
 
     const data = (await apiRes.json()) as PixabayResponse;
-    const hit = data.hits?.[0];
+
+    // Find first hit that's not blocked and not already in the library
+    const hit = data.hits?.find((h) => {
+      const pid = String(h.id);
+      return !blocked.has(pid) && !existingSet.has(pid);
+    });
     if (!hit) return false;
 
-    // Prefer largeImageURL; fall back to webformatURL
     const imageUrl = hit.largeImageURL || hit.webformatURL;
     if (!imageUrl) return false;
 
@@ -121,7 +137,6 @@ export async function fetchAndAttachImage(
     if (!imgRes.ok) return false;
 
     const buffer = Buffer.from(await imgRes.arrayBuffer());
-
     const asset = await writeClient.assets.upload("image", buffer, {
       filename: `pixabay-${hit.id}.jpg`,
       contentType: "image/jpeg",
@@ -129,7 +144,6 @@ export async function fetchAndAttachImage(
 
     const signals = signalTags(mediaTags);
 
-    // Attach as post mainImage and save to imageAsset library in parallel
     await Promise.all([
       writeClient.patch(postId).set({
         mainImage: {
@@ -143,6 +157,7 @@ export async function fetchAndAttachImage(
         _type: "imageAsset",
         title: `${query} — Pixabay #${hit.id}`,
         image: { _type: "image", asset: { _type: "reference", _ref: asset._id } },
+        pixabayId: String(hit.id),
         quality: "lifestyle",
         tags: signals,
         source: `Pixabay #${hit.id} (${hit.user}) · query: "${query}"`,
@@ -152,7 +167,6 @@ export async function fetchAndAttachImage(
 
     return true;
   } catch {
-    // Image fetch is best-effort — don't fail the article save
     return false;
   }
 }

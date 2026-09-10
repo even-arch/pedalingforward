@@ -60,6 +60,13 @@ export const imageAsset = defineType({
       type: 'string',
     }),
     defineField({
+      name: 'pixabayId',
+      title: 'Pixabay ID',
+      type: 'string',
+      description: 'Set automatically when imported from Pixabay. Used to prevent duplicate fetches.',
+      readOnly: true,
+    }),
+    defineField({
       name: 'source',
       title: 'Source',
       type: 'string',

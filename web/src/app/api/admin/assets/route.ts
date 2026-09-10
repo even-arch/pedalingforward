@@ -1,5 +1,6 @@
 import { checkAdminAuth } from "@/lib/admin";
 import { writeClient } from "@/sanity/lib/write-client";
+import { addToBlocklist } from "@/lib/pixabay-blocklist";
 
 type ImageAsset = {
   _id: string;
@@ -65,6 +66,16 @@ export async function DELETE(req: Request) {
 
   const { id } = await req.json() as { id: string };
   if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+
+  // If this was a Pixabay image, add its ID to the blocklist before deleting
+  const doc = await writeClient.fetch<{ pixabayId?: string }>(
+    `*[_id == $id][0]{ pixabayId }`,
+    { id },
+    { cache: "no-store" }
+  );
+  if (doc?.pixabayId) {
+    await addToBlocklist(doc.pixabayId);
+  }
 
   await writeClient.delete(id);
   return Response.json({ ok: true });

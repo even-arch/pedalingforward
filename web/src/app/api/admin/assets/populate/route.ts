@@ -1,5 +1,6 @@
 import { checkAdminAuth, getPixabayKey } from "@/lib/admin";
 import { writeClient } from "@/sanity/lib/write-client";
+import { getBlockedPixabayIds } from "@/lib/pixabay-blocklist";
 
 export const maxDuration = 30;
 
@@ -90,20 +91,36 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, tag, added: 0, skipped: true });
   }
 
-  // Search Pixabay
+  // Fetch blocklist + existing library pixabayIds to avoid duplicates
   const needed = IMAGES_PER_TAG - existing;
+  const [blocked, existingPixabayIds] = await Promise.all([
+    getBlockedPixabayIds(),
+    writeClient.fetch<string[]>(
+      `*[_type == "imageAsset" && defined(pixabayId)].pixabayId`,
+      {},
+      { cache: "no-store" }
+    ),
+  ]);
+  const existingSet = new Set(existingPixabayIds);
+
+  // Fetch enough results to find `needed` novel images after filtering
   const apiUrl =
     `https://pixabay.com/api/?key=${pixabayKey}` +
     `&q=${encodeURIComponent(searchQuery)}` +
     `&image_type=photo&orientation=horizontal&min_width=1000` +
-    `&per_page=${needed + 2}&safesearch=true&order=popular`;
+    `&per_page=${Math.min(needed * 4 + 5, 30)}&safesearch=true&order=popular`;
 
   const pixRes = await fetch(apiUrl);
   if (!pixRes.ok) {
     return Response.json({ error: `Pixabay API error: ${pixRes.status}` }, { status: 502 });
   }
   const pixData = await pixRes.json() as { hits?: PixabayHit[] };
-  const hits = pixData.hits ?? [];
+
+  // Filter out blocked and already-stored images
+  const hits = (pixData.hits ?? []).filter((h) => {
+    const pid = String(h.id);
+    return !blocked.has(pid) && !existingSet.has(pid);
+  });
 
   let added = 0;
   for (const hit of hits.slice(0, needed)) {
@@ -119,6 +136,7 @@ export async function POST(req: Request) {
         _type: "imageAsset",
         title: `${tag} — Pixabay #${hit.id}`,
         image: { _type: "image", asset: { _type: "reference", _ref: asset._id } },
+        pixabayId: String(hit.id),
         quality: "lifestyle",
         tags: [tag],
         source: `Pixabay #${hit.id} (${hit.user})`,
