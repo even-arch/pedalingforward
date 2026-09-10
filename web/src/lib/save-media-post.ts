@@ -24,15 +24,19 @@ export async function saveDraftPost(
   sourceItemIds: string[],
   audience = "both",
 ): Promise<{ postId: string; slug: string; mediaTags: string[] }> {
-  // Fetch source items for tags
+  // Fetch source items for tags and original publication date
   let combinedTags: string[] = [];
+  let newsDate: string | undefined;
   if (sourceItemIds.length) {
-    const items = await writeClient.fetch<{ _id: string; tags?: string[] }[]>(
-      `*[_type == "mediaItem" && _id in $ids]{_id, tags}`,
+    const items = await writeClient.fetch<{ _id: string; tags?: string[]; publishedAt?: string }[]>(
+      `*[_type == "mediaItem" && _id in $ids]{_id, tags, publishedAt}`,
       { ids: sourceItemIds },
       { cache: "no-store" }
     );
     combinedTags = [...new Set(items.flatMap((i) => i.tags ?? []))];
+    // Use the earliest source article date — this is what matters to readers
+    const dates = items.map((i) => i.publishedAt).filter(Boolean) as string[];
+    if (dates.length) newsDate = dates.sort()[0];
   }
 
   const slug = slugify(article.en.title);
@@ -44,7 +48,7 @@ export async function saveDraftPost(
     ...(combinedTags.length ? { mediaTags: combinedTags } : {}),
     title: { _type: "localizedString", en: article.en.title, zh: article.zh.title, ja: article.ja.title, de: article.de.title },
     slug: { _type: "slug", current: slug },
-    publishedAt: new Date().toISOString(),
+    publishedAt: newsDate ?? new Date().toISOString(),
     excerpt: { _type: "localizedText", en: article.en.summary, zh: article.zh.summary, ja: article.ja.summary, de: article.de.summary },
     body: {
       _type: "localizedBlockContent",

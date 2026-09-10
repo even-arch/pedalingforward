@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { writeClient } from "@/sanity/lib/write-client";
 import { urlFor } from "@/sanity/image";
-import { loc, formatDate } from "@/lib/locale";
+import { loc, formatDateWithWeek } from "@/lib/locale";
 
 type LocalizedStr = { en?: string | null; zh?: string | null; ja?: string | null; de?: string | null };
 
@@ -250,7 +250,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
             {posts.map((post, idx) => {
               const title    = loc(post.title, locale);
               const excerpt  = loc(post.excerpt, locale);
-              const date     = formatDate(post.publishedAt, locale);
+              const date     = formatDateWithWeek(post.publishedAt, locale);
               const postTypeLabel = POST_TYPES.find((pt) => pt.value === post.postType)?.label[locale]
                 ?? POST_TYPES.find((pt) => pt.value === post.postType)?.label.en ?? "";
               const isLead = idx === 0 && page === 1;

@@ -60,7 +60,7 @@ export async function PATCH(req: Request) {
 
   if (action === "publish") {
     patch.status = "published";
-    patch.publishedAt = new Date().toISOString();
+    // publishedAt preserves the original source article date; only set if missing
   } else if (action === "unpublish") {
     patch.status = "draft";
   }
@@ -97,6 +97,10 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  await writeClient.patch(id).set(patch).commit();
+  await writeClient
+    .patch(id)
+    .set(patch)
+    .setIfMissing({ publishedAt: new Date().toISOString() })
+    .commit();
   return Response.json({ ok: true });
 }
