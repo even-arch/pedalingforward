@@ -9,11 +9,8 @@ function k() { return `k${(++_key).toString(36)}`; }
 type PTBlock = { _type: string; _key: string; style?: string; listItem?: string; level?: number; children: unknown[]; markDefs: unknown[] };
 type Source = { url: string; name: string };
 
-function buildBody(summary: string, keyPoints: string[], sources: Source[]): PTBlock[] {
-  const blocks: PTBlock[] = [{
-    _type: "block", _key: k(), style: "normal", markDefs: [],
-    children: [{ _type: "span", _key: k(), text: summary, marks: [] }],
-  }];
+function buildBody(keyPoints: string[], sources: Source[]): PTBlock[] {
+  const blocks: PTBlock[] = [];
   for (const point of keyPoints.slice(0, 3)) {
     blocks.push({ _type: "block", _key: k(), style: "normal", listItem: "bullet", level: 1, markDefs: [], children: [{ _type: "span", _key: k(), text: point, marks: [] }] });
   }
@@ -63,10 +60,10 @@ export async function saveDraftPost(
     excerpt: { _type: "localizedText", en: article.en.summary, zh: article.zh.summary, ja: article.ja.summary, de: article.de.summary },
     body: {
       _type: "localizedBlockContent",
-      en: buildBody(article.en.summary, article.en.keyPoints, sources),
-      zh: buildBody(article.zh.summary, article.zh.keyPoints, sources),
-      ja: buildBody(article.ja.summary, article.ja.keyPoints, sources),
-      de: buildBody(article.de.summary, article.de.keyPoints, sources),
+      en: buildBody(article.en.keyPoints, sources),
+      zh: buildBody(article.zh.keyPoints, sources),
+      ja: buildBody(article.ja.keyPoints, sources),
+      de: buildBody(article.de.keyPoints, sources),
     },
     sourceUrl: sources[0]?.url,
   };
