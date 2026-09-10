@@ -203,6 +203,7 @@ export default function ComposePage() {
   const [unpublishing, setUnpublishing] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [autoTagging, setAutoTagging] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -238,6 +239,24 @@ export default function ComposePage() {
     }
   }
 
+  async function repairBodies() {
+    setRepairing(true);
+    try {
+      const res = await fetch("/api/admin/posts/repair-bodies", { method: "POST", headers });
+      const text = await res.text();
+      let d: { ok?: boolean; repaired?: number; total?: number; details?: string[]; error?: string } = {};
+      try { d = JSON.parse(text); } catch { /* non-JSON timeout */ }
+      if (!res.ok) { showToast(`失敗：${d.error ?? `HTTP ${res.status}`}`); return; }
+      if (!d.ok) { showToast("失敗：伺服器沒有回應，請稍後再試"); return; }
+      showToast(`完成：${d.repaired}/${d.total} 篇已修復段落重複`);
+      if (d.repaired) load();
+    } catch (err) {
+      showToast(`失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   async function unpublish(id: string) {
     setUnpublishing(id);
     try {
@@ -266,10 +285,16 @@ export default function ComposePage() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>文章管理</h1>
         {activeStatus === "published" && (
-          <button onClick={autoTagPublished} disabled={autoTagging}
-            style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
-            {autoTagging ? "補標籤中…" : "AI 補標籤（無標籤文章）"}
-          </button>
+          <>
+            <button onClick={autoTagPublished} disabled={autoTagging || repairing}
+              style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+              {autoTagging ? "補標籤中…" : "AI 補標籤（無標籤文章）"}
+            </button>
+            <button onClick={repairBodies} disabled={repairing || autoTagging}
+              style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+              {repairing ? "修復中…" : "修復段落重複"}
+            </button>
+          </>
         )}
         <button onClick={load} style={{ marginLeft: "auto", padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           重新整理
