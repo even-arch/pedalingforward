@@ -146,7 +146,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
   return (
     <>
       {/* Page header */}
-      <div className="phead" style={{ paddingBlock: "60px 40px" }}>
+      <div className="field-ink phead" style={{ paddingBlock: "56px 48px" }}>
         <div className="wrap">
           <h1 className="display" style={{ marginBottom: 0 }}>{t("heading", locale)}</h1>
         </div>
@@ -158,7 +158,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
 
           {/* Type filter */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span className="tag" style={{ color: "#8a7a70", marginRight: 6, minWidth: 48 }}>{t("filter", locale)}</span>
+            <span style={{ fontFamily: "var(--font-ibm-mono, monospace)", fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa09a", marginRight: 6, minWidth: 44, flexShrink: 0 }}>{t("filter", locale)}</span>
             {POST_TYPES.map((pt) => {
               const active = activeType === pt.value;
               const href = buildUrl(locale, { tag: activeTag || undefined, type: pt.value || undefined, since: since || undefined });
@@ -180,7 +180,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
           {/* Tag filter */}
           {allTags.length > 0 && (
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-              <span className="tag" style={{ color: "#8a7a70", marginRight: 6, minWidth: 48 }}>{t("tags", locale)}</span>
+              <span style={{ fontFamily: "var(--font-ibm-mono, monospace)", fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa09a", marginRight: 6, minWidth: 44, flexShrink: 0 }}>{t("tags", locale)}</span>
               {allTags.map((tag) => {
                 const active = activeTag === tag;
                 const href = buildUrl(locale, {
@@ -206,7 +206,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
 
           {/* Time filter */}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            <span className="tag" style={{ color: "#8a7a70", marginRight: 6, minWidth: 48 }}>{t("period", locale)}</span>
+            <span style={{ fontFamily: "var(--font-ibm-mono, monospace)", fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaa09a", marginRight: 6, minWidth: 44, flexShrink: 0 }}>{t("period", locale)}</span>
             {TIME_OPTIONS.map((opt) => {
               const active = since === opt.value;
               const href = buildUrl(locale, { tag: activeTag || undefined, type: activeType || undefined, since: opt.value || undefined });
