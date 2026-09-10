@@ -105,5 +105,71 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return Response.json({ ok: true, analyzed, dismissed, errors });
+  // Cluster newly analyzed items by signal-tag overlap + date proximity
+  const clustered = await clusterAnalyzedItems();
+
+  return Response.json({ ok: true, analyzed, dismissed, clustered, errors });
+}
+
+// Tags that carry no topical signal — excluded from cluster matching
+const GEO_TAGS = new Set([
+  "taiwan", "japan", "china", "germany", "netherlands", "uk", "us",
+  "france", "italy", "belgium", "denmark", "sweden",
+]);
+
+function signalTags(tags: string[]): string[] {
+  return tags.filter((t) => !GEO_TAGS.has(t));
+}
+
+function signalOverlap(a: string[], b: string[]): number {
+  const sa = new Set(signalTags(a));
+  return signalTags(b).filter((t) => sa.has(t)).length;
+}
+
+async function clusterAnalyzedItems(): Promise<number> {
+  const items = await writeClient.fetch<{ _id: string; tags?: string[]; publishedAt?: string; _createdAt: string }[]>(
+    `*[_type == "mediaItem" && status == "analyzed" && !defined(clusterGroup)]{_id, tags, publishedAt, _createdAt}`,
+    {},
+    { cache: "no-store" }
+  );
+  if (!items.length) return 0;
+
+  const sorted = [...items].sort((a, b) => {
+    const da = new Date(a.publishedAt ?? a._createdAt).getTime();
+    const db = new Date(b.publishedAt ?? b._createdAt).getTime();
+    return da - db;
+  });
+
+  type Cluster = { groupId: string; tags: string[]; minMs: number; maxMs: number; ids: string[] };
+  const clusters: Cluster[] = [];
+
+  for (const item of sorted) {
+    const ms = new Date(item.publishedAt ?? item._createdAt).getTime();
+    const tags = item.tags ?? [];
+    let matched = false;
+
+    for (const c of clusters) {
+      const daysDiff = Math.max(Math.abs(ms - c.minMs), Math.abs(ms - c.maxMs)) / 86_400_000;
+      if (daysDiff <= 7 && signalOverlap(tags, c.tags) >= 2) {
+        c.ids.push(item._id);
+        c.tags = [...new Set([...c.tags, ...tags])];
+        if (ms < c.minMs) c.minMs = ms;
+        if (ms > c.maxMs) c.maxMs = ms;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      clusters.push({ groupId: crypto.randomUUID(), tags, minMs: ms, maxMs: ms, ids: [item._id] });
+    }
+  }
+
+  await Promise.all(
+    clusters.flatMap(({ groupId, ids }) =>
+      ids.map((id) => writeClient.patch(id).set({ clusterGroup: groupId }).commit())
+    )
+  );
+
+  return items.length;
 }

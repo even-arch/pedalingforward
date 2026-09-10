@@ -20,6 +20,15 @@ type MediaItem = {
   relevanceReason?: string;
   fullTextFetched?: boolean;
   hasPost?: boolean;
+  clusterGroup?: string;
+};
+
+type Cluster = {
+  groupId: string;
+  items: MediaItem[];
+  commonTags: string[];
+  minDate: string | undefined;
+  maxDate: string | undefined;
 };
 
 type TagStat = { tag: string; total: number; analyzed: number; collected: number };
@@ -31,6 +40,7 @@ type GenerationJob = {
   id: string; itemIds: string[]; editorialNote?: string; status: string;
   result?: GeneratedArticle; error?: string;
   primaryUrl?: string; primarySource?: string;
+  autoSave?: boolean; savedPostId?: string; audience?: string;
   createdAt: string; doneAt?: string;
 };
 
@@ -58,20 +68,150 @@ const AUDIENCE_OPTIONS = [
   { value: "both",     label: "🌐 兩者（全語言）" },
 ];
 
+// Tags that don't carry topical signal (same list as backend)
+const GEO_TAGS = new Set([
+  "taiwan", "japan", "china", "germany", "netherlands", "uk", "us",
+  "france", "italy", "belgium", "denmark", "sweden",
+]);
+
 function fmt(iso?: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("zh-TW", { month: "short", day: "numeric" });
 }
 
 function TagChip({ tag, active, onClick }: { tag: string; active?: boolean; onClick?: () => void }) {
+  const isGeo = GEO_TAGS.has(tag);
   return (
     <span onClick={onClick} style={{
       display: "inline-block", padding: "2px 8px", borderRadius: 99, fontSize: 11, cursor: onClick ? "pointer" : "default",
-      background: active ? "#D5352A" : "#2a2824", color: active ? "#fff" : "#a09890",
-      border: `1px solid ${active ? "#D5352A" : "#3a3530"}`, userSelect: "none",
+      background: active ? "#D5352A" : isGeo ? "#1e2a1e" : "#2a2824",
+      color: active ? "#fff" : isGeo ? "#7ab07a" : "#a09890",
+      border: `1px solid ${active ? "#D5352A" : isGeo ? "#2a4a2a" : "#3a3530"}`, userSelect: "none",
     }}>
       {TAG_LABELS[tag] ?? tag}
     </span>
+  );
+}
+
+function buildClusters(items: MediaItem[]): Cluster[] {
+  const map = new Map<string, MediaItem[]>();
+  const singletons: MediaItem[] = [];
+  for (const item of items) {
+    if (item.clusterGroup) {
+      const arr = map.get(item.clusterGroup) ?? [];
+      arr.push(item);
+      map.set(item.clusterGroup, arr);
+    } else {
+      singletons.push(item);
+    }
+  }
+
+  const clusters: Cluster[] = [];
+  for (const [groupId, clItems] of map) {
+    const allTags = clItems.flatMap((i) => i.tags ?? []);
+    const tagCounts = new Map<string, number>();
+    for (const t of allTags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    const commonTags = [...tagCounts.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).map(([t]) => t);
+    const dates = clItems.map((i) => i.publishedAt).filter(Boolean) as string[];
+    clusters.push({ groupId, items: clItems, commonTags, minDate: dates.sort()[0], maxDate: dates.sort().at(-1) });
+  }
+  // singletons each get their own cluster of 1
+  for (const item of singletons) {
+    clusters.push({ groupId: item._id, items: [item], commonTags: item.tags ?? [], minDate: item.publishedAt, maxDate: item.publishedAt });
+  }
+  // Sort by newest item date desc
+  clusters.sort((a, b) => (b.maxDate ?? "") > (a.maxDate ?? "") ? 1 : -1);
+  return clusters;
+}
+
+function ClusterCard({
+  cluster, headers, onCollect, onDismissItem, onToggleExpand, expanded,
+}: {
+  cluster: Cluster;
+  headers: Record<string, string>;
+  onCollect: (clusterGroup: string, isSingleton: boolean) => void;
+  onDismissItem: (id: string) => void;
+  onToggleExpand: () => void;
+  expanded: boolean;
+}) {
+  const { groupId, items, commonTags, minDate, maxDate } = cluster;
+  const isSingleton = items.length === 1;
+  const signalTags = commonTags.filter((t) => !GEO_TAGS.has(t));
+  const geoTags = commonTags.filter((t) => GEO_TAGS.has(t));
+  const dateRange = minDate === maxDate ? fmt(minDate) : `${fmt(minDate)} – ${fmt(maxDate)}`;
+
+  return (
+    <div style={{ border: "1px solid #2a2824", borderRadius: 6, marginBottom: 10, overflow: "hidden" }}>
+      {/* Cluster header */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", background: "#141210", cursor: "pointer" }} onClick={onToggleExpand}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+            {signalTags.slice(0, 5).map((t) => <TagChip key={t} tag={t} />)}
+            {geoTags.slice(0, 3).map((t) => <TagChip key={t} tag={t} />)}
+          </div>
+          <div style={{ fontSize: 12, color: "#6a6460" }}>
+            {isSingleton ? (
+              <span style={{ color: "#e8e4df", fontWeight: 500 }}>{items[0].title}</span>
+            ) : (
+              <span><strong style={{ color: "#e8e4df" }}>{items.length} 篇</strong> · {dateRange} · {items.map((i) => i.sourceName ?? "—").filter((s, i, a) => a.indexOf(s) === i).slice(0, 3).join("、")}</span>
+            )}
+          </div>
+          {isSingleton && (
+            <div style={{ fontSize: 11, color: "#5a5650", marginTop: 3 }}>
+              {items[0].sourceName} · {fmt(items[0].publishedAt)}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => onCollect(isSingleton ? items[0]._id : groupId, isSingleton)}
+            style={{ padding: "5px 14px", background: "#1e3a1e", border: "1px solid #2a4a2a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
+            收錄
+          </button>
+          {!isSingleton && (
+            <span style={{ padding: "5px 8px", color: "#5a5650", fontSize: 12 }}>{expanded ? "▲" : "▼"}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded item list */}
+      {(expanded || isSingleton) && !isSingleton && (
+        <div>
+          {items.map((item, idx) => (
+            <div key={item._id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", borderTop: "1px solid #1a1916", background: idx % 2 === 0 ? "#0f0e0c" : "#111009" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <a href={item.url} target="_blank" rel="noopener"
+                  style={{ color: "#c8c4c0", fontSize: 13, fontWeight: 500, textDecoration: "none", display: "block", marginBottom: 3 }}>
+                  {item.title}
+                </a>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                  {(item.tags ?? []).filter((t) => !commonTags.includes(t)).map((t) => (
+                    <TagChip key={t} tag={t} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: "#5a5650" }}>
+                  {item.sourceName} · {item.sourceRegion} · {item.sourceLanguage?.toUpperCase()} · {fmt(item.publishedAt)}
+                  {item.fullTextFetched && <span style={{ color: "#4caf50" }}> · 全文已抓</span>}
+                </div>
+                {item.summary && (
+                  <div style={{ fontSize: 12, color: "#8a8278", marginTop: 4, lineHeight: 1.5 }}>{item.summary}</div>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                <a href={item.url} target="_blank" rel="noopener"
+                  style={{ padding: "3px 8px", background: "#1a2a3a", border: "1px solid #2a3a4a", color: "#7ab8f0", borderRadius: 3, cursor: "pointer", fontSize: 11, textDecoration: "none" }}>
+                  原文
+                </a>
+                <button onClick={() => onDismissItem(item._id)}
+                  style={{ padding: "3px 8px", background: "#2a1e1e", border: "1px solid #3a2a2a", color: "#f44336", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+                  排除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -109,7 +249,7 @@ function ArticlePreview({ article, primaryUrl, sourceName, sourceCount, onSave, 
             <div style={{ fontSize: 12, color: "#5a5650" }}>
               來源：<a href={primaryUrl} target="_blank" rel="noopener" style={{ color: "#8a8278" }}>{sourceName || primaryUrl}</a>
               {sourceCount && sourceCount > 1 && (
-                <span style={{ marginLeft: 8, color: "#4a5a4a" }}>（共 {sourceCount} 篇來源，儲存後全部連結都會帶入）</span>
+                <span style={{ marginLeft: 8, color: "#4a5a4a" }}>（共 {sourceCount} 篇來源）</span>
               )}
             </div>
           )}
@@ -154,6 +294,8 @@ export default function MediaPage() {
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [tagStats, setTagStats] = useState<TagStat[] | null>(null);
   const [showTagStats, setShowTagStats] = useState(false);
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
+  const [collectingClusters, setCollectingClusters] = useState<Set<string>>(new Set());
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -186,9 +328,13 @@ export default function MediaPage() {
   // Auto-poll every 5s while any job is pending/running
   useEffect(() => {
     if (!jobs.some((j) => j.status === "pending" || j.status === "running")) return;
-    const id = setInterval(loadJobs, 5000);
+    const id = setInterval(() => {
+      loadJobs();
+      // Refresh analyzed tab if a cluster job completed
+      if (tab === "analyzed") load();
+    }, 5000);
     return () => clearInterval(id);
-  }, [jobs, loadJobs]);
+  }, [jobs, loadJobs, load, tab]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 4000); }
 
@@ -199,6 +345,29 @@ export default function MediaPage() {
     loadCounts();
   }
 
+  // Collect a cluster: trigger auto-generate + auto-save
+  async function collectCluster(clusterGroupOrItemId: string, isSingleton: boolean) {
+    setCollectingClusters((prev) => new Set([...prev, clusterGroupOrItemId]));
+    try {
+      const payload = isSingleton
+        ? { itemId: clusterGroupOrItemId }
+        : { clusterGroup: clusterGroupOrItemId };
+      const res = await fetch("/api/admin/collect-cluster", {
+        method: "POST", headers,
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast(`✅ 已送出生成，完成後自動存入草稿`);
+      setTimeout(loadJobs, 800);
+    } catch (err) {
+      showToast(`收錄失敗: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCollectingClusters((prev) => { const n = new Set(prev); n.delete(clusterGroupOrItemId); return n; });
+    }
+  }
+
+  // Manual generate (multi-select) — keeps old flow with review step
   async function generate() {
     const ids = [...selected];
     if (!ids.length) return;
@@ -232,6 +401,8 @@ export default function MediaPage() {
     await fetch("/api/admin/media/jobs", { method: "PATCH", headers, body: JSON.stringify({ id }) });
     setJobs((prev) => prev.filter((j) => j.id !== id));
     if (currentJobId === id) { setGeneratedArticle(null); setCurrentJobId(null); }
+    load();
+    loadCounts();
   }
 
   async function savePost(audience: string) {
@@ -258,10 +429,10 @@ export default function MediaPage() {
     }
   }
 
-  async function triggerCron(path: string, label: string, doneLabel: (d: Record<string, number>) => string) {
+  async function triggerCron(path: string, label: string, doneLabel: (d: Record<string, unknown>) => string, method = "GET") {
     showToast(`${label}中…`);
     try {
-      const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(path, { method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
       const data = await res.json();
       showToast(doneLabel(data));
       load();
@@ -286,7 +457,7 @@ export default function MediaPage() {
 
   async function loadTagStats() {
     setShowTagStats(true);
-    if (tagStats) return; // already loaded
+    if (tagStats) return;
     try {
       const res = await fetch("/api/admin/media?status=tag-stats", { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
@@ -333,15 +504,14 @@ export default function MediaPage() {
 
   const filtered = items.filter((it) => {
     if (search && !it.title.toLowerCase().includes(search.toLowerCase()) && !it.sourceName?.toLowerCase().includes(search.toLowerCase())) return false;
-    // AND logic: every active tag must be present
     if (activeTags.size > 0 && ![...activeTags].every((t) => (it.tags ?? []).includes(t))) return false;
     if (activeRegion && it.sourceRegion !== activeRegion) return false;
     return true;
   });
 
+  const clusters = tab === "analyzed" ? buildClusters(filtered) : [];
   const allSelected = filtered.length > 0 && filtered.every((it) => selected.has(it._id));
   const toggle = (id: string) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-
   const tabCount = (key: string) => counts ? ` (${counts[key as keyof Counts] ?? 0})` : "";
 
   return (
@@ -377,9 +547,13 @@ export default function MediaPage() {
           style={{ padding: "6px 12px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           擷取 RSS
         </button>
-        <button onClick={() => triggerCron("/api/cron/filter-media", "AI 分析", (d) => `分析完成：${d.analyzed ?? 0} 篇進已分析，${d.dismissed ?? 0} 篇自動排除`)}
+        <button onClick={() => triggerCron("/api/cron/filter-media", "AI 分析", (d) => `分析完成：${d.analyzed ?? 0} 篇，自動打包 ${d.clustered ?? 0} 篇`)}
           style={{ padding: "6px 12px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           AI 分析
+        </button>
+        <button onClick={() => triggerCron("/api/admin/recluster", "重新打包", (d) => String(d.message ?? `打包完成：${d.groups ?? 0} 組`), "POST")}
+          style={{ padding: "6px 12px", background: "#1a2a1a", border: "1px solid #2a4a2a", color: "#a0c0a0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          重新打包
         </button>
         <button onClick={() => triggerCron("/api/cron/enrich-media", "AI 摘要", (d) => `摘要完成：${d.enriched ?? 0} 篇（本批 5 篇）`)}
           style={{ padding: "6px 12px", background: "#1a2a1a", border: "1px solid #2a402a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
@@ -409,14 +583,12 @@ export default function MediaPage() {
             <div style={{ display: "grid", gap: 7 }}>
               {tagStats.map(({ tag, total, analyzed, collected }) => {
                 const maxTotal = tagStats[0].total;
-                const pct = Math.round((total / maxTotal) * 100);
                 return (
                   <div key={tag} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span
                       onClick={() => { setShowTagStats(false); setActiveTags(new Set([tag])); }}
                       style={{ width: 120, fontSize: 11, fontWeight: 600, color: activeTags.has(tag) ? "#D5352A" : "#a09890", flexShrink: 0, cursor: "pointer", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}
-                      title={TAG_LABELS[tag] ?? tag}
-                    >
+                      title={TAG_LABELS[tag] ?? tag}>
                       {TAG_LABELS[tag] ?? tag}
                     </span>
                     <div style={{ flex: 1, height: 8, background: "#1a1916", borderRadius: 4, overflow: "hidden" }}>
@@ -447,7 +619,7 @@ export default function MediaPage() {
             <span style={{ fontSize: 12, fontWeight: 700, color: "#4caf50", letterSpacing: "0.06em", textTransform: "uppercase" }}>✨ AI 草稿</span>
             <span style={{ fontSize: 11, color: "#6a7a6a" }}>
               {jobs.filter((j) => j.status === "pending" || j.status === "running").length > 0 && "生成中…"}
-              {jobs.filter((j) => j.status === "done").length > 0 && `${jobs.filter((j) => j.status === "done").length} 篇待審`}
+              {jobs.filter((j) => j.status === "done" && !j.autoSave).length > 0 && `${jobs.filter((j) => j.status === "done" && !j.autoSave).length} 篇待審`}
             </span>
           </div>
           {jobs.map((job) => (
@@ -457,18 +629,20 @@ export default function MediaPage() {
                 color: job.status === "done" ? "#4caf50" : job.status === "error" ? "#f08070" : "#e8c84a",
                 animation: (job.status === "pending" || job.status === "running") ? "pulse 1.2s ease-in-out infinite" : undefined,
               }}>
-                {job.status === "done" ? "完成" : job.status === "error" ? "失敗" : "生成中 ●"}
+                {job.status === "done" ? (job.savedPostId ? "已儲存" : "完成") : job.status === "error" ? "失敗" : "生成中 ●"}
               </span>
               <span style={{ flex: 1, fontSize: 12, color: "#8a9880" }}>
                 {job.status === "error"
                   ? <span style={{ color: "#c08070" }}>{job.error?.slice(0, 80)}</span>
-                  : `${job.itemIds.length} 篇新聞`
+                  : job.savedPostId
+                    ? <span style={{ color: "#4caf50" }}>草稿已存入文章管理 ✓</span>
+                    : `${job.itemIds.length} 篇新聞`
                 }
               </span>
               <span style={{ fontSize: 11, color: "#4a5a4a", fontFamily: "monospace" }}>
                 {new Date(job.createdAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
               </span>
-              {job.status === "done" && (
+              {job.status === "done" && !job.autoSave && (
                 <button onClick={() => reviewJob(job)}
                   style={{ padding: "5px 14px", background: "#1e3a1e", border: "1px solid #2a5a2a", color: "#4caf50", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                   審閱
@@ -527,20 +701,10 @@ export default function MediaPage() {
         )}
       </div>
 
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
+      {/* Bulk action bar — only shown for non-analyzed tabs */}
+      {selected.size > 0 && tab !== "analyzed" && (
         <div style={{ marginBottom: 14, padding: "10px 14px", background: "#1a1916", border: "1px solid #2a2824", borderRadius: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: "#a09890", flexShrink: 0 }}>已選 {selected.size} 篇</span>
-          {tab === "analyzed" && (
-            <>
-              <input placeholder="編輯備注（可選，會傳給 AI）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
-                style={{ flex: 1, minWidth: 120, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
-              <button onClick={generate} disabled={generating}
-                style={{ padding: "7px 16px", background: generating ? "#6a3020" : "#D5352A", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
-                {generating ? "AI 生成中…" : "✨ 生成摘要"}
-              </button>
-            </>
-          )}
           <button onClick={() => selected.forEach((id) => updateStatus(id, "dismissed"))}
             style={{ padding: "6px 12px", background: "#2a1e1e", border: "1px solid #4a2a2a", color: "#f44336", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
             批次排除
@@ -552,100 +716,132 @@ export default function MediaPage() {
         </div>
       )}
 
+      {/* Manual generate bar for analyzed tab (advanced / cross-cluster use) */}
+      {selected.size > 0 && tab === "analyzed" && (
+        <div style={{ marginBottom: 14, padding: "10px 14px", background: "#1a1916", border: "1px solid #2a3a24", borderRadius: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "#a09890", flexShrink: 0 }}>手動選取 {selected.size} 篇</span>
+          <input placeholder="編輯備注（可選，會傳給 AI）" value={editorialNote} onChange={(e) => setEditorialNote(e.target.value)}
+            style={{ flex: 1, minWidth: 120, padding: "6px 10px", background: "#0f0e0c", border: "1px solid #2a2824", borderRadius: 4, color: "#e8e4df", fontSize: 13, outline: "none" }} />
+          <button onClick={generate} disabled={generating}
+            style={{ padding: "7px 16px", background: generating ? "#6a3020" : "#4a3020", color: "#e8a060", border: "1px solid #6a4020", borderRadius: 4, cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
+            {generating ? "AI 生成中…" : "✨ 手動生成（需審閱）"}
+          </button>
+          <button onClick={() => setSelected(new Set())}
+            style={{ padding: "6px 12px", background: "none", border: "1px solid #2a2824", color: "#8a8278", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+            取消
+          </button>
+        </div>
+      )}
+
       {/* Item list */}
       {loading ? (
         <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>載入中…</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
-          {search || activeTags.size > 0 ? "無符合條件的文章" : tab === "raw" ? "暫無待分析文章。按「擷取 RSS」拉進來。" : tab === "analyzed" ? "暫無已分析文章。按「AI 分析」處理待分析文章。" : tab === "collected" ? "暫無已收錄文章。從已分析生成摘要後會自動進來。" : "暫無已排除文章。"}
-        </div>
-      ) : (
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", color: "#5a5650", fontSize: 12, borderBottom: "1px solid #1a1916" }}>
-            <input type="checkbox" checked={allSelected}
-              onChange={() => setSelected(allSelected ? new Set() : new Set(filtered.map((i) => i._id)))} />
-            <span>全選（{filtered.length} 篇）</span>
+      ) : tab === "analyzed" ? (
+        // Cluster view for analyzed tab
+        clusters.length === 0 ? (
+          <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
+            {search || activeTags.size > 0 ? "無符合條件的文章" : "暫無已分析文章。按「AI 分析」處理待分析文章。"}
           </div>
-
-          {filtered.map((item) => (
-            <div key={item._id}
-              style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 12px", borderBottom: "1px solid #1a1916", background: selected.has(item._id) ? "#1a1916" : "transparent", cursor: "pointer" }}
-              onClick={() => toggle(item._id)}>
-              <input type="checkbox" checked={selected.has(item._id)} onChange={() => toggle(item._id)} onClick={(e) => e.stopPropagation()} style={{ marginTop: 2, flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                  <a href={item.url} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}
-                    style={{ color: "#e8e4df", fontWeight: 600, fontSize: 14, textDecoration: "none", flex: 1 }}>
-                    {item.title}
-                  </a>
-                </div>
-
-                {/* Tags */}
-                {(item.tags?.length ?? 0) > 0 && (
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }} onClick={(e) => e.stopPropagation()}>
-                    {item.tags!.map((tag) => (
-                      <TagChip key={tag} tag={tag} active={activeTags.has(tag)} onClick={() => toggleTag(tag)} />
-                    ))}
-                  </div>
-                )}
-
-                <div style={{ display: "flex", gap: 8, color: "#8a8278", fontSize: 12, marginBottom: 4, flexWrap: "wrap" }}>
-                  <span style={{ color: "#6a6460", fontWeight: 500 }}>{item.sourceName}</span>
-                  {item.sourceRegion && (
-                    <span onClick={(e) => { e.stopPropagation(); setActiveRegion(activeRegion === item.sourceRegion ? null : (item.sourceRegion ?? null)); }}
-                      style={{ padding: "0 5px", borderRadius: 3, background: "#1a2a3a", color: "#6a9abf", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
-                      {item.sourceRegion}
-                    </span>
-                  )}
-                  {item.sourceLanguage && <span>· {item.sourceLanguage.toUpperCase()}</span>}
-                  <span>· {fmt(item.publishedAt)}</span>
-                  {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 全文已抓</span>}
-                  {item.hasPost && <span style={{ color: "#4caf50" }}>· 已建草稿</span>}
-                </div>
-
-                {item.summary ? (
-                  <div style={{ color: "#a09890", fontSize: 12, lineHeight: 1.6, marginBottom: 4 }}>{item.summary}</div>
-                ) : item.description ? (
-                  <div style={{ color: "#6a6460", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                    {item.description}
-                  </div>
-                ) : null}
-
-                {item.relevanceReason && (
-                  <div style={{ color: "#5a5650", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>{item.relevanceReason}</div>
-                )}
-              </div>
-
-              {/* Per-item action buttons */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                {tab === "analyzed" && (
-                  <button onClick={() => updateStatus(item._id, "collected")}
-                    style={{ padding: "4px 10px", background: "#1e3a1e", border: "1px solid #2a4a2a", color: "#4caf50", borderRadius: 3, cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" }}>
-                    收錄
-                  </button>
-                )}
-                {tab === "collected" && (
-                  <button onClick={() => updateStatus(item._id, "analyzed")}
-                    style={{ padding: "4px 10px", background: "#1a1916", border: "1px solid #3a3530", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
-                    退回
-                  </button>
-                )}
-                {tab !== "dismissed" && (
-                  <button onClick={() => updateStatus(item._id, "dismissed")}
-                    style={{ padding: "4px 10px", background: "#2a1e1e", border: "1px solid #4a2a2a", color: "#f44336", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
-                    排除
-                  </button>
-                )}
-                {tab === "dismissed" && (
-                  <button onClick={() => updateStatus(item._id, "analyzed")}
-                    style={{ padding: "4px 10px", background: "#1e1c19", border: "1px solid #3a3530", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
-                    還原
-                  </button>
-                )}
-              </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 12, color: "#5a5650", marginBottom: 10 }}>
+              共 {clusters.length} 組（{filtered.length} 篇）· 點「收錄」自動生成四語版草稿並儲存
             </div>
-          ))}
-        </div>
+            {clusters.map((cluster) => (
+              <ClusterCard
+                key={cluster.groupId}
+                cluster={cluster}
+                headers={headers}
+                onCollect={collectCluster}
+                onDismissItem={(id) => updateStatus(id, "dismissed")}
+                onToggleExpand={() => setExpandedClusters((prev) => {
+                  const n = new Set(prev);
+                  n.has(cluster.groupId) ? n.delete(cluster.groupId) : n.add(cluster.groupId);
+                  return n;
+                })}
+                expanded={expandedClusters.has(cluster.groupId)}
+              />
+            ))}
+          </div>
+        )
+      ) : (
+        // Flat list for other tabs
+        filtered.length === 0 ? (
+          <div style={{ color: "#8a8278", padding: 32, textAlign: "center" }}>
+            {search || activeTags.size > 0 ? "無符合條件的文章" : tab === "raw" ? "暫無待分析文章。按「擷取 RSS」拉進來。" : tab === "collected" ? "暫無已收錄文章。" : "暫無已排除文章。"}
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", color: "#5a5650", fontSize: 12, borderBottom: "1px solid #1a1916" }}>
+              <input type="checkbox" checked={allSelected}
+                onChange={() => setSelected(allSelected ? new Set() : new Set(filtered.map((i) => i._id)))} />
+              <span>全選（{filtered.length} 篇）</span>
+            </div>
+
+            {filtered.map((item) => (
+              <div key={item._id}
+                style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 12px", borderBottom: "1px solid #1a1916", background: selected.has(item._id) ? "#1a1916" : "transparent", cursor: "pointer" }}
+                onClick={() => toggle(item._id)}>
+                <input type="checkbox" checked={selected.has(item._id)} onChange={() => toggle(item._id)} onClick={(e) => e.stopPropagation()} style={{ marginTop: 2, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <a href={item.url} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}
+                      style={{ color: "#e8e4df", fontWeight: 600, fontSize: 14, textDecoration: "none", flex: 1 }}>
+                      {item.title}
+                    </a>
+                  </div>
+                  {(item.tags?.length ?? 0) > 0 && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 5 }} onClick={(e) => e.stopPropagation()}>
+                      {item.tags!.map((tag) => (
+                        <TagChip key={tag} tag={tag} active={activeTags.has(tag)} onClick={() => toggleTag(tag)} />
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, color: "#8a8278", fontSize: 12, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ color: "#6a6460", fontWeight: 500 }}>{item.sourceName}</span>
+                    {item.sourceRegion && (
+                      <span onClick={(e) => { e.stopPropagation(); setActiveRegion(activeRegion === item.sourceRegion ? null : (item.sourceRegion ?? null)); }}
+                        style={{ padding: "0 5px", borderRadius: 3, background: "#1a2a3a", color: "#6a9abf", fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
+                        {item.sourceRegion}
+                      </span>
+                    )}
+                    {item.sourceLanguage && <span>· {item.sourceLanguage.toUpperCase()}</span>}
+                    <span>· {fmt(item.publishedAt)}</span>
+                    {item.fullTextFetched && <span style={{ color: "#4caf50" }}>· 全文已抓</span>}
+                    {item.hasPost && <span style={{ color: "#4caf50" }}>· 已建草稿</span>}
+                  </div>
+                  {item.summary ? (
+                    <div style={{ color: "#a09890", fontSize: 12, lineHeight: 1.6, marginBottom: 4 }}>{item.summary}</div>
+                  ) : item.description ? (
+                    <div style={{ color: "#6a6460", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      {item.description}
+                    </div>
+                  ) : null}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                  {tab === "collected" && (
+                    <button onClick={() => updateStatus(item._id, "analyzed")}
+                      style={{ padding: "4px 10px", background: "#1a1916", border: "1px solid #3a3530", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+                      退回
+                    </button>
+                  )}
+                  {tab !== "dismissed" && (
+                    <button onClick={() => updateStatus(item._id, "dismissed")}
+                      style={{ padding: "4px 10px", background: "#2a1e1e", border: "1px solid #4a2a2a", color: "#f44336", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+                      排除
+                    </button>
+                  )}
+                  {tab === "dismissed" && (
+                    <button onClick={() => updateStatus(item._id, "analyzed")}
+                      style={{ padding: "4px 10px", background: "#1e1c19", border: "1px solid #3a3530", color: "#8a8278", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>
+                      還原
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

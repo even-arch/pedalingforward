@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   const items = await writeClient.fetch(
     `*[_type == "mediaItem" && status == $status] | order(relevanceScore desc, publishedAt desc)[0...$limit]{
       _id, title, url, sourceName, sourceLanguage, sourceRegion, description,
-      summary, keyPoints, tags, fullTextFetched,
+      summary, keyPoints, tags, fullTextFetched, clusterGroup,
       publishedAt, fetchedAt, status, relevanceScore, relevanceReason,
       "hasPost": defined(generatedPost)
     }`,

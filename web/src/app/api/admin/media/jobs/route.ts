@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     select: {
       id: true, itemIds: true, editorialNote: true, status: true,
       result: true, error: true, primaryUrl: true, primarySource: true,
-      createdAt: true, doneAt: true,
+      createdAt: true, doneAt: true, autoSave: true, savedPostId: true, audience: true,
     },
   });
 

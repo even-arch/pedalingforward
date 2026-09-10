@@ -120,6 +120,12 @@ export const mediaItem = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'clusterGroup',
+      title: 'Cluster Group',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
       name: 'generatedPost',
       title: 'Generated Post',
       type: 'reference',

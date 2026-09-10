@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicKey, getAiWritingRules } from "./admin";
 import { writeClient } from "@/sanity/lib/write-client";
 import { db } from "./db";
+import { saveDraftPost, type GeneratedArticle } from "./save-media-post";
 
 const LOCALES = ["en", "zh", "ja", "de"] as const;
 
@@ -113,14 +114,21 @@ export async function processGenerationJob(jobId: string): Promise<void> {
     const toolBlock = response.content.find((b) => b.type === "tool_use") as { type: "tool_use"; input: Record<string, { title: string; summary: string; keyPoints: string[] }> } | undefined;
     if (!toolBlock) throw new Error("AI 沒有回傳有效的 JSON");
 
-    const parsed = toolBlock.input;
+    const parsed = toolBlock.input as GeneratedArticle;
     for (const locale of LOCALES) {
       if (!parsed[locale]?.title) throw new Error(`AI 回傳資料缺少語言：${locale}`);
     }
 
+    // Auto-save: create Sanity draft immediately without requiring manual review
+    let savedPostId: string | undefined;
+    if (job.autoSave) {
+      const saved = await saveDraftPost(parsed, job.itemIds, job.audience);
+      savedPostId = saved.postId;
+    }
+
     await db.mediaGenerationJob.update({
       where: { id: jobId },
-      data: { status: "done", result: parsed, primaryUrl, primarySource, doneAt: new Date() },
+      data: { status: "done", result: parsed, primaryUrl, primarySource, doneAt: new Date(), ...(savedPostId ? { savedPostId } : {}) },
     });
   } catch (err) {
     await db.mediaGenerationJob

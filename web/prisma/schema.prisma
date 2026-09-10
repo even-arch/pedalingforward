@@ -123,6 +123,9 @@ model MediaGenerationJob {
   error         String?   @db.Text
   createdAt     DateTime  @default(now())
   doneAt        DateTime?
+  autoSave      Boolean   @default(false)
+  savedPostId   String?
+  audience      String    @default("both")
 
   @@index([status, createdAt])
 }

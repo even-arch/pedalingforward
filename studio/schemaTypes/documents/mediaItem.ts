@@ -122,6 +122,13 @@ export const mediaItem = defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'clusterGroup',
+      title: 'Cluster Group',
+      type: 'string',
+      readOnly: true,
+      description: 'Auto-assigned UUID grouping related articles by topic/event',
+    }),
+    defineField({
       name: 'generatedPost',
       title: 'Generated Post',
       type: 'reference',

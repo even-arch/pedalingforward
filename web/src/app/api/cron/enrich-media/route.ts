@@ -44,12 +44,11 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "No Anthropic API key" }, { status: 500 });
   }
 
-  // Get collected items that haven't been enriched yet (no summary)
-  // Batch capped at 5 to stay within Vercel Function timeout
+  // Enrich analyzed items that have no summary yet; batch capped at 5 for Vercel timeout
   const items = await writeClient.fetch<{
     _id: string; title: string; url: string; sourceName?: string; sourceLanguage?: string; description?: string;
   }[]>(
-    `*[_type == "mediaItem" && status == "collected" && !defined(summary)][0...5]{
+    `*[_type == "mediaItem" && status == "analyzed" && !defined(summary)][0...5]{
       _id, title, url, sourceName, sourceLanguage, description
     }`,
     {},
@@ -125,7 +124,7 @@ export async function GET(req: NextRequest) {
     const lines = enrichedTitles.slice(0, 5).map((t, i) => `${i + 1}. ${t}`).join("\n");
     const more = enrichedTitles.length > 5 ? `\n+${enrichedTitles.length - 5} more` : "";
     await sendTelegram(
-      `📰 <b>情報室 — ${enriched} 篇草稿已就緒</b>\n\n${lines}${more}\n\n→ /admin/media`
+      `📰 <b>情報室 — ${enriched} 篇已摘要完成</b>\n\n${lines}${more}\n\n→ /admin/media`
     );
   }
 
