@@ -61,11 +61,14 @@ export async function POST(req: Request) {
     }
   }
 
-  await Promise.all(
-    clusters.flatMap(({ groupId, ids }) =>
-      ids.map((id) => writeClient.patch(id).set({ clusterGroup: groupId }).commit())
-    )
-  );
+  // Use a transaction so all patches are a single Sanity API call (avoids rate limiting)
+  const tx = writeClient.transaction();
+  for (const { groupId, ids } of clusters) {
+    for (const id of ids) {
+      tx.patch(id, { set: { clusterGroup: groupId } });
+    }
+  }
+  await tx.commit();
 
   const multiGroups = clusters.filter((c) => c.ids.length > 1).length;
 

@@ -165,11 +165,13 @@ async function clusterAnalyzedItems(): Promise<number> {
     }
   }
 
-  await Promise.all(
-    clusters.flatMap(({ groupId, ids }) =>
-      ids.map((id) => writeClient.patch(id).set({ clusterGroup: groupId }).commit())
-    )
-  );
+  const tx = writeClient.transaction();
+  for (const { groupId, ids } of clusters) {
+    for (const id of ids) {
+      tx.patch(id, { set: { clusterGroup: groupId } });
+    }
+  }
+  await tx.commit();
 
   return items.length;
 }
