@@ -35,6 +35,11 @@ const WIDGETS: Widget[] = [
     desc: "管理員密碼、AI API Keys、Telegram 通知設定、AI 寫作規則。",
   },
   {
+    href: "/admin/assets",
+    title: "圖庫管理",
+    desc: "上傳圖片並以標籤分類；透過標籤比對找出每篇文章最合適的配圖。",
+  },
+  {
     href: "/admin/data",
     title: "貿易資料",
     desc: "從 UN Comtrade 補抓最新月份 HS 8714 / 8712 資料。每月 5 號自動執行，也可手動觸發。",
