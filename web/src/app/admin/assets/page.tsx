@@ -432,6 +432,9 @@ export default function AssetsPage() {
   const [populating, setPopulating] = useState(false);
   const [populateResult, setPopulateResult] = useState<string | null>(null);
   const [populateProgress, setPopulateProgress] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [backfillProgress, setBackfillProgress] = useState<string | null>(null);
   const headers = { Authorization: `Bearer ${token}` };
 
   const load = useCallback(async () => {
@@ -524,6 +527,51 @@ export default function AssetsPage() {
     }
   }
 
+  async function backfill() {
+    setBackfilling(true);
+    setBackfillResult(null);
+    setBackfillProgress("查詢沒有配圖的已發布文章…");
+
+    try {
+      const listRes = await fetch("/api/admin/assets/backfill", { headers });
+      if (!listRes.ok) {
+        const d = await listRes.json() as { error?: string };
+        setBackfillResult(`失敗：${d.error ?? `HTTP ${listRes.status}`}`);
+        return;
+      }
+      const { posts } = await listRes.json() as { posts: { _id: string; title?: string; slug?: string }[]; count: number };
+
+      if (!posts.length) {
+        setBackfillResult("所有已發布文章都已有配圖");
+        return;
+      }
+
+      let assigned = 0;
+      let skipped = 0;
+      for (let i = 0; i < posts.length; i++) {
+        const post = posts[i];
+        setBackfillProgress(`配圖中 ${i + 1}/${posts.length}：${post.title ?? post.slug ?? post._id}`);
+
+        const res = await fetch("/api/admin/assets/assign-to-post", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ postId: post._id }),
+        });
+        const d = await res.json() as { ok?: boolean; source?: string };
+        if (d.ok && d.source !== "no-tags") assigned++;
+        else skipped++;
+      }
+
+      setBackfillProgress(null);
+      setBackfillResult(`完成：${assigned} 篇文章已配圖，${skipped} 篇跳過（無標籤或已有圖）`);
+    } catch (err) {
+      setBackfillResult(`補配失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBackfilling(false);
+      setBackfillProgress(null);
+    }
+  }
+
   async function deleteItem(id: string) {
     await fetch("/api/admin/assets", {
       method: "DELETE",
@@ -548,12 +596,20 @@ export default function AssetsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => setShowMatch(true)} style={BTN_GHOST}>為文章找配圖…</button>
-          <button onClick={populate} disabled={populating} style={BTN_GHOST}>
+          <button onClick={backfill} disabled={backfilling || populating} style={BTN_GHOST}>
+            {backfilling ? "補配中…" : "補配已發布文章"}
+          </button>
+          <button onClick={populate} disabled={populating || backfilling} style={BTN_GHOST}>
             {populating ? "填充中（約 30 秒）…" : "自動填充圖庫"}
           </button>
           <button onClick={() => setShowUpload(true)} style={BTN_RED}>＋ 上傳圖片</button>
         </div>
       </div>
+      {(backfillProgress || backfillResult) && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: backfillResult?.startsWith("失敗") || backfillResult?.startsWith("補配失敗") ? "#D5352A" : "#4caf50" }}>
+          {backfillProgress ?? backfillResult}
+        </div>
+      )}
       {(populateProgress || populateResult) && (
         <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6, fontSize: 13, color: populateResult?.startsWith("失敗") || populateResult?.startsWith("填充失敗") ? "#D5352A" : "#4caf50" }}>
           {populateProgress ?? populateResult}
