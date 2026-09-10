@@ -24,6 +24,7 @@ type Post = {
   author?: { name?: string | null } | null;
   category?: { title?: LocalizedStr | null } | null;
   relatedBrands?: { _id: string; name?: string | null }[] | null;
+  mediaItems?: { _id: string; title: string; url: string; sourceName?: string | null }[] | null;
 };
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
@@ -129,18 +130,25 @@ export default async function ArticlePage({ params }: Props) {
         {/* Excerpt / lead */}
         {excerpt && <p className="article-lead">{excerpt}</p>}
 
+        {/* 情報來源 — shown right after lead, before body */}
+        {post.mediaItems && post.mediaItems.length > 0 && (
+          <div className="article-sources">
+            <span className="lab">{locale === "zh" ? "情報來源" : locale === "ja" ? "情報ソース" : locale === "de" ? "Quellen" : "Sources"}</span>
+            <ul className="article-source-list">
+              {post.mediaItems.map((m) => (
+                <li key={m._id}>
+                  <a href={m.url} target="_blank" rel="noopener noreferrer">{m.title}</a>
+                  {m.sourceName && <span className="article-source-name"> · {m.sourceName}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Body */}
         {bodyBlocks && bodyBlocks.length > 0 && (
           <div className="article-prose">
             <PortableText value={bodyBlocks} components={components} />
-          </div>
-        )}
-
-        {/* Source */}
-        {post.sourceUrl && (
-          <div className="article-source">
-            <span className="lab">{locale === "zh" ? "原文來源" : locale === "ja" ? "出典" : locale === "de" ? "Quelle" : "Source"}</span>
-            <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer">{post.sourceUrl}</a>
           </div>
         )}
 

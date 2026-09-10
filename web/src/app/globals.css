@@ -179,6 +179,21 @@
   .article-figure { margin: 2em 0; }
   .article-figure img { width: 100%; height: auto; border-radius: 2px; }
   .article-figure figcaption { margin-top: 8px; font-size: 13px; color: #9A9088; font-style: italic; }
+  .article-sources {
+    margin: 20px 0 28px;
+    padding: 14px 18px;
+    background: #F9F7F4;
+    border-left: 3px solid #DDD8D1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .article-sources .lab { margin-bottom: 6px; display: block; }
+  .article-source-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .article-source-list li { font-size: 13px; line-height: 1.5; }
+  .article-source-list a { color: #4A4440; text-decoration: underline; text-underline-offset: 2px; }
+  .article-source-list a:hover { color: #D5352A; }
+  .article-source-name { color: #9A9088; }
   .article-source {
     margin-top: 40px;
     padding-top: 24px;

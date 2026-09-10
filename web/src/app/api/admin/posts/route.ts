@@ -13,10 +13,8 @@ export async function GET(req: Request) {
   const posts = await writeClient.fetch(
     `*[_type == "post" && status == $status] | order(_createdAt desc)[0...50]{
       _id, _createdAt, status, postType, audience, editorialNote,
-      title, slug, publishedAt, sourceUrl,
+      title, slug, publishedAt, sourceUrl, mediaTags,
       excerpt,
-      "bodyEn": body.en,
-      "keyPointsFromBody": body.en[listItem == "bullet"].children[0].text,
       "mediaItems": *[_type == "mediaItem" && references(^._id)]{_id, title, url, sourceName}
     }`,
     { status },
@@ -37,23 +35,15 @@ type PatchBody = {
   sourceUrl?: string;
 };
 
-function buildBody(summary: string, keyPoints: string[], sourceUrl: string) {
+function buildBody(keyPoints: string[]) {
   let keyCounter = 0;
   const k = () => `k${(++keyCounter).toString(36)}`;
 
   type PTBlock = { _type: string; _key: string; style?: string; listItem?: string; level?: number; children: unknown[]; markDefs: unknown[] };
-  const blocks: PTBlock[] = [
-    { _type: "block", _key: k(), style: "normal", markDefs: [], children: [{ _type: "span", _key: k(), text: summary, marks: [] }] },
-    ...keyPoints.slice(0, 3).map((pt) => ({
-      _type: "block", _key: k(), style: "normal", listItem: "bullet", level: 1, markDefs: [],
-      children: [{ _type: "span", _key: k(), text: pt, marks: [] }],
-    })),
-  ];
-  if (sourceUrl) {
-    const lk = k();
-    blocks.push({ _type: "block", _key: k(), style: "normal", markDefs: [{ _type: "link", _key: lk, href: sourceUrl, blank: true }], children: [{ _type: "span", _key: k(), text: "Source", marks: [lk] }] });
-  }
-  return blocks;
+  return keyPoints.slice(0, 3).map((pt) => ({
+    _type: "block", _key: k(), style: "normal", listItem: "bullet", level: 1, markDefs: [],
+    children: [{ _type: "span", _key: k(), text: pt, marks: [] }],
+  } as PTBlock));
 }
 
 export async function PATCH(req: Request) {
@@ -93,17 +83,12 @@ export async function PATCH(req: Request) {
     if (body.excerpt.de !== undefined) patch["excerpt.de"] = body.excerpt.de;
   }
 
-  // Rebuild body PT from updated excerpt + keyPoints
-  if (body.excerpt || body.keyPoints) {
-    const current = await writeClient.fetch<{excerpt?: {en?: string; zh?: string; ja?: string; de?: string}; sourceUrl?: string}>(
-      `*[_type == "post" && _id == $id][0]{excerpt, sourceUrl}`, { id }, { cache: "no-store" }
-    );
-    const srcUrl = body.sourceUrl ?? current?.sourceUrl ?? "";
+  // Rebuild body only when keyPoints are explicitly provided (not on routine compose saves)
+  if (body.keyPoints) {
     for (const locale of ["en", "zh", "ja", "de"] as const) {
-      const summary = (body.excerpt?.[locale] ?? current?.excerpt?.[locale]) ?? "";
-      const points = body.keyPoints?.[locale] ?? [];
-      if (summary || points.length) {
-        patch[`body.${locale}`] = buildBody(summary, points, srcUrl);
+      const points = body.keyPoints[locale] ?? [];
+      if (points.length) {
+        patch[`body.${locale}`] = buildBody(points);
       }
     }
   }

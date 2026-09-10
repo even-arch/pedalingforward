@@ -16,6 +16,7 @@ type DraftPost = {
   excerpt?: Record<LocaleKey, string>;
   slug?: { current: string };
   sourceUrl?: string;
+  mediaTags?: string[];
   mediaItems?: { _id: string; title: string; url: string; sourceName?: string }[];
 };
 
@@ -112,14 +113,15 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
         <div style={{ overflow: "auto", flex: 1, padding: "20px" }}>
           {/* Editorial note — the critical one-liner */}
           <div style={{ marginBottom: 20, padding: 14, background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6 }}>
-            <label style={{ ...labelBase, color: "#4caf50" }}>編輯備注 — 你的一句話判斷</label>
-            <input
+            <label style={{ ...labelBase, color: "#4caf50" }}>編輯觀點</label>
+            <textarea
               value={editorialNote}
               onChange={(e) => setEditorialNote(e.target.value)}
-              placeholder="這件事對台灣廠商意味著什麼？（一句話）"
-              style={{ ...inputBase, border: "1px solid #2a402a" }}
+              placeholder="這件事對台灣廠商意味著什麼？"
+              rows={3}
+              style={{ ...inputBase, border: "1px solid #2a402a", resize: "vertical", lineHeight: 1.6 }}
             />
-            <div style={{ fontSize: 11, color: "#4a6a4a", marginTop: 4 }}>這句話會顯示在文章頂端，代表 Pedaling Forward 的觀點。</div>
+            <div style={{ fontSize: 11, color: "#4a6a4a", marginTop: 4 }}>會顯示在文章頂端，代表 Pedaling Forward 的觀點。</div>
           </div>
 
           {/* Meta */}
@@ -324,9 +326,18 @@ export default function ComposePage() {
                     {post.excerpt.zh}
                   </div>
                 )}
+                {post.mediaTags?.length ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
+                    {post.mediaTags.map((t) => (
+                      <span key={t} style={{ fontSize: 10, padding: "1px 6px", background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 3, color: "#6a9a6a" }}>{t}</span>
+                    ))}
+                  </div>
+                ) : activeStatus === "published" ? (
+                  <div style={{ fontSize: 11, color: "#D5352A", marginTop: 4 }}>⚠ 無標籤</div>
+                ) : null}
                 {post.mediaItems?.length ? (
                   <div style={{ fontSize: 11, color: "#5a5650", marginTop: 4 }}>
-                    來源：{post.mediaItems.map((m) => m.sourceName || m.title).join("、")}
+                    {post.mediaItems.map((m) => m.sourceName || m.title).join(" · ")}
                   </div>
                 ) : null}
               </div>
