@@ -329,12 +329,12 @@ export default function ComposePage() {
               style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
               {repairing ? "修復中…" : "修復段落重複"}
             </button>
-            <button onClick={repairDates} disabled={repairingDates || repairing || autoTagging}
-              style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
-              {repairingDates ? "修復中…" : "補正文章日期"}
-            </button>
           </>
         )}
+        <button onClick={repairDates} disabled={repairingDates || repairing || autoTagging}
+          style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+          {repairingDates ? "補日期中…" : "補正文章日期"}
+        </button>
         <button onClick={load} style={{ marginLeft: "auto", padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
           重新整理
         </button>

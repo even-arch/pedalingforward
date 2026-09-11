@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     title?: { zh?: string; en?: string };
     "sourceItems": { publishedAt?: string }[];
   }[]>(
-    `*[_type == "post" && status == "published"]{
+    `*[_type == "post" && status in ["published", "draft"]]{
       _id, publishedAt, title,
       "sourceItems": *[_type == "mediaItem" && generatedPost._ref == ^._id]{ publishedAt }
     }`,
