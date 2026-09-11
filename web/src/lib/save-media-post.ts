@@ -28,14 +28,14 @@ export async function saveDraftPost(
   let combinedTags: string[] = [];
   let newsDate: string | undefined;
   if (sourceItemIds.length) {
-    const items = await writeClient.fetch<{ _id: string; tags?: string[]; publishedAt?: string }[]>(
-      `*[_type == "mediaItem" && _id in $ids]{_id, tags, publishedAt}`,
+    const items = await writeClient.fetch<{ _id: string; tags?: string[]; publishedAt?: string; _createdAt: string }[]>(
+      `*[_type == "mediaItem" && _id in $ids]{_id, tags, publishedAt, _createdAt}`,
       { ids: sourceItemIds },
       { cache: "no-store" }
     );
     combinedTags = [...new Set(items.flatMap((i) => i.tags ?? []))];
-    // Use the earliest source article date — this is what matters to readers
-    const dates = items.map((i) => i.publishedAt).filter(Boolean) as string[];
+    // Use the earliest source article date; fall back to _createdAt if publishedAt not set
+    const dates = items.map((i) => i.publishedAt ?? i._createdAt).filter(Boolean) as string[];
     if (dates.length) newsDate = dates.sort()[0];
   }
 

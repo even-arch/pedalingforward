@@ -8,16 +8,18 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch all published posts with their associated mediaItems' publishedAt dates
+  // Fetch all posts with their associated mediaItems' dates
+  // Use references() — more reliable than generatedPost._ref == ^._id in GROQ
+  // Fetch both publishedAt and _createdAt from mediaItems so we always have a fallback date
   const posts = await writeClient.fetch<{
     _id: string;
     publishedAt?: string;
     title?: { zh?: string; en?: string };
-    "sourceItems": { publishedAt?: string }[];
+    sourceItems: { publishedAt?: string; _createdAt: string }[];
   }[]>(
     `*[_type == "post" && status in ["published", "draft"]]{
       _id, publishedAt, title,
-      "sourceItems": *[_type == "mediaItem" && generatedPost._ref == ^._id]{ publishedAt }
+      "sourceItems": *[_type == "mediaItem" && references(^._id)]{ publishedAt, _createdAt }
     }`,
     {},
     { cache: "no-store" }
@@ -27,18 +29,19 @@ export async function POST(req: Request) {
   const details: string[] = [];
 
   for (const post of posts) {
+    // Use publishedAt if available, otherwise fall back to _createdAt (RSS ingest date)
     const dates = (post.sourceItems ?? [])
-      .map((i) => i.publishedAt)
+      .map((i) => i.publishedAt ?? i._createdAt)
       .filter(Boolean) as string[];
     if (!dates.length) continue;
 
     const earliestDate = dates.sort()[0];
 
-    // Only update if the date would actually change (more than 1 day difference)
+    // Skip only if difference is less than 6 hours (same-day articles are accurate)
     if (post.publishedAt) {
       const existing = new Date(post.publishedAt).getTime();
       const target = new Date(earliestDate).getTime();
-      if (Math.abs(existing - target) < 86400000) continue; // within 1 day — skip
+      if (Math.abs(existing - target) < 6 * 3600 * 1000) continue;
     }
 
     try {
