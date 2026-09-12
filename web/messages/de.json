@@ -4,11 +4,11 @@
     "description": "Taiwanesische Fahrradkomponenten für unabhängige Fahrradläden weltweit."
   },
   "nav": {
-    "forShops": "Für Shops",
-    "forSuppliers": "Für Lieferanten",
-    "forDistributors": "Für Händler",
-    "howItWorks": "So funktioniert's",
-    "marketIntel": "Marktinformation",
+    "forShops": "Shops",
+    "forSuppliers": "Lieferanten",
+    "forDistributors": "Händler",
+    "howItWorks": "Wie's geht",
+    "marketIntel": "Marktdaten",
     "about": "Über uns",
     "goToPatisco": "Zu Patisco"
   },
