@@ -33,8 +33,24 @@ export default function Header() {
   useEffect(() => { setOpen(false); }, [pathname]);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (open) {
+      // iOS-safe scroll lock: fix the body in place instead of overflow:hidden
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      if (scrollY) window.scrollTo(0, -parseInt(scrollY));
+    }
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+    };
   }, [open]);
 
   function switchLocale(next: Locale) {
@@ -61,7 +77,7 @@ export default function Header() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="main hidden md:flex" aria-label="Main navigation">
+          <nav className="main hidden lg:flex" aria-label="Main navigation">
             {NAV_ITEMS.map(({ key, msgKey }) => {
               const href   = `/${locale}/${key}`;
               const active = pathname.startsWith(href);
@@ -74,15 +90,15 @@ export default function Header() {
           </nav>
 
           {/* Desktop: language switcher + CTA */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4">
             <div className="lang">
               {routing.locales.map((loc) => (
                 loc === locale ? (
                   <b key={loc}>{LOCALE_LABELS[loc]}</b>
                 ) : (
-                  <span key={loc} onClick={() => switchLocale(loc)}>
+                  <button key={loc} type="button" onClick={() => switchLocale(loc)}>
                     {LOCALE_LABELS[loc]}
-                  </span>
+                  </button>
                 )
               ))}
             </div>
@@ -93,7 +109,7 @@ export default function Header() {
 
           {/* Mobile: hamburger */}
           <button
-            className="hamburger md:hidden"
+            className="hamburger lg:hidden"
             onClick={() => setOpen((o) => !o)}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
@@ -141,9 +157,9 @@ export default function Header() {
                 loc === locale ? (
                   <b key={loc}>{LOCALE_LABELS[loc]}</b>
                 ) : (
-                  <span key={loc} onClick={() => switchLocale(loc)}>
+                  <button key={loc} type="button" onClick={() => switchLocale(loc)}>
                     {LOCALE_LABELS[loc]}
-                  </span>
+                  </button>
                 )
               ))}
             </div>

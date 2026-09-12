@@ -299,6 +299,8 @@
     padding: 18px 20px;
     border-bottom: 1px solid #E8E3DC;
     text-decoration: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   .mobile-nav nav a[aria-current="page"] { color: #14120F; border-left: 3px solid #D5352A; padding-left: 17px; }
   .mobile-nav-footer {
@@ -317,9 +319,10 @@
   }
   nav.main {
     display: flex;
-    gap: 24px;
+    gap: 20px;
     margin-left: auto;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
   nav.main a {
     font-family: var(--font-ibm-mono, 'Courier New', monospace);
@@ -346,6 +349,17 @@
   }
   .lang b { color: #14120F; font-weight: 600; }
   .lang span { cursor: pointer; }
+  .lang button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    touch-action: manipulation;
+  }
 
   /* ── Hero (red bg) ── */
   .hero {
