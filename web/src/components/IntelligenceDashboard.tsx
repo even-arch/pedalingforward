@@ -85,7 +85,10 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
       return null;
     }
   }, [locale]);
-  const countryName = (code2: string) => dn?.of(code2) ?? code2;
+  const countryName = (code2: string) => {
+    if (!dn) return code2;
+    try { return dn.of(code2) ?? code2; } catch { return code2; }
+  };
 
   const [importMetrics, setImportMetrics] = useState<ImportMetric[]>([]);
   const [exportMetrics, setExportMetrics] = useState<ExportMetric[]>([]);
@@ -237,7 +240,9 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
   };
 
   const tagLabel = (tag: string) => {
-    const key = `tag${tag.replace(/[^a-z0-9]/gi, "_")}` as Parameters<typeof t>[0];
+    // "demand_collapse" → "tagDemand_collapse" to match message keys
+    const norm = tag.replace(/[^a-z0-9_]/gi, "_");
+    const key = `tag${norm.charAt(0).toUpperCase()}${norm.slice(1)}` as Parameters<typeof t>[0];
     try { return t(key); } catch { return tag; }
   };
 
