@@ -104,6 +104,24 @@ export const STATIC_PAGE_DEFAULTS: Record<string, any> = {
     ],
   },
 
+  intelligence: {
+    slug: "intelligence",
+    heroStyle: "dark",
+    heroEyebrow: ls("Market Intelligence", "貿易情報", "市場データ", "Marktdaten"),
+    heroHeadline: ls(
+      "Global bicycle trade, decoded.",
+      "全球自行車貿易情報",
+      "世界の自転車貿易データ",
+      "Globaler Fahrradhandel, aufgeschlüsselt."
+    ),
+    heroLead: lt(
+      "Import/export trends, supply chain origins, industry events, and AI causal rules. Data source: UN Comtrade, updated monthly.",
+      "進出口量走勢、主要供應鏈分佈、產業事件與 AI 因果規則。資料來源：UN Comtrade，每月更新。",
+      "輸出入トレンド、サプライチェーン、産業イベント、AI因果ルール。出典：UN Comtrade（毎月更新）。",
+      "Import-/Export-Trends, Lieferkettenquellen, Branchenereignisse und KI-Kausalregeln. Quelle: UN Comtrade, monatlich aktualisiert."
+    ),
+  },
+
   about: {
     slug: "about",
     heroStyle: "dark",

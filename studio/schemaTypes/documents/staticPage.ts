@@ -13,11 +13,12 @@ export const staticPage = defineType({
       validation: (Rule) => Rule.required(),
       options: {
         list: [
-          {title: 'For Bike Shops', value: 'shops'},
-          {title: 'For Suppliers',  value: 'suppliers'},
-          {title: 'For Distributors', value: 'distributors'},
-          {title: 'How It Works',   value: 'how-it-works'},
-          {title: 'About',          value: 'about'},
+          {title: 'For Bike Shops',    value: 'shops'},
+          {title: 'For Suppliers',     value: 'suppliers'},
+          {title: 'For Distributors',  value: 'distributors'},
+          {title: 'How It Works',      value: 'how-it-works'},
+          {title: 'Market Intelligence', value: 'intelligence'},
+          {title: 'About',             value: 'about'},
         ],
       },
     }),
