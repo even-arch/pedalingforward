@@ -102,7 +102,7 @@ export default function Header() {
                 )
               ))}
             </div>
-            <a href="https://patisco.com" target="_blank" rel="noopener noreferrer" className="btn">
+            <a href="https://patisco.com" target="_blank" rel="noopener noreferrer" className="btn header-cta">
               {t("goToPatisco")}
             </a>
           </div>
