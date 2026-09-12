@@ -104,3 +104,17 @@ export async function PATCH(req: Request) {
     .commit();
   return Response.json({ ok: true });
 }
+
+export async function DELETE(req: Request) {
+  if (!(await checkAdminAuth(req))) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return Response.json({ error: "id required" }, { status: 400 });
+
+  // Delete both the draft (drafts.<id>) and published version
+  await writeClient.delete(`drafts.${id}`).catch(() => {});
+  await writeClient.delete(id).catch(() => {});
+  return Response.json({ ok: true, deleted: id });
+}
