@@ -17,7 +17,7 @@ type Post = {
   excerpt?: LocalizedStr | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body?: { en?: any[]; zh?: any[]; ja?: any[]; de?: any[] } | null;
-  editorialNote?: string | null;
+  editorialNote?: LocalizedStr | null;
   sourceUrl?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mainImage?: { asset?: any; alt?: LocalizedStr | null; caption?: LocalizedStr | null } | null;
@@ -120,10 +120,10 @@ export default async function ArticlePage({ params }: Props) {
         <h1 className="article-title">{title}</h1>
 
         {/* Editorial note */}
-        {post.editorialNote && (
+        {loc(post.editorialNote, locale) && (
           <div className="article-note">
             <span className="lab">{locale === "zh" ? "編輯觀點" : locale === "ja" ? "編集者より" : locale === "de" ? "Redaktion" : "Editor's take"}</span>
-            <p>{post.editorialNote}</p>
+            <p>{loc(post.editorialNote, locale)}</p>
           </div>
         )}
 

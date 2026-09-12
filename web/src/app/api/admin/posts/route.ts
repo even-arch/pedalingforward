@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 type PatchBody = {
   id?: string;
   action?: "publish" | "unpublish" | "update";
-  editorialNote?: string;
+  editorialNote?: { en?: string; zh?: string; ja?: string; de?: string };
   audience?: string;
   title?: { en?: string; zh?: string; ja?: string; de?: string };
   excerpt?: { en?: string; zh?: string; ja?: string; de?: string };
@@ -65,7 +65,12 @@ export async function PATCH(req: Request) {
     patch.status = "draft";
   }
 
-  if (body.editorialNote !== undefined) patch.editorialNote = body.editorialNote;
+  if (body.editorialNote) {
+    if (body.editorialNote.zh !== undefined) patch["editorialNote.zh"] = body.editorialNote.zh;
+    if (body.editorialNote.en !== undefined) patch["editorialNote.en"] = body.editorialNote.en;
+    if (body.editorialNote.ja !== undefined) patch["editorialNote.ja"] = body.editorialNote.ja;
+    if (body.editorialNote.de !== undefined) patch["editorialNote.de"] = body.editorialNote.de;
+  }
   if (body.audience !== undefined) patch.audience = body.audience;
   if (body.sourceUrl !== undefined) patch.sourceUrl = body.sourceUrl;
 

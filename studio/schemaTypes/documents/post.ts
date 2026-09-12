@@ -116,9 +116,9 @@ export const post = defineType({
     }),
     defineField({
       name: 'editorialNote',
-      title: '編輯備注（一句話判斷）',
-      type: 'string',
-      description: '編輯加的一句話：這件事對台灣廠商/車店意味著什麼。上線後會顯示在文章頂端。',
+      title: '編輯觀點（四語言）',
+      type: 'localizedString',
+      description: '編輯一句話判斷：這件事對台灣廠商/車店意味著什麼。zh 寫好後可在 Compose 按 AI 翻譯。',
     }),
     defineField({
       name: 'sourceUrl',

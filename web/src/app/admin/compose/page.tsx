@@ -12,7 +12,7 @@ type DraftPost = {
   status: string;
   postType?: string;
   audience?: string;
-  editorialNote?: string;
+  editorialNote?: Record<LocaleKey, string>;
   title?: Record<LocaleKey, string>;
   excerpt?: Record<LocaleKey, string>;
   slug?: { current: string };
@@ -54,17 +54,40 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
   const [excerpt, setExcerpt] = useState<Record<LocaleKey, string>>({
     zh: post.excerpt?.zh ?? "", en: post.excerpt?.en ?? "", ja: post.excerpt?.ja ?? "", de: post.excerpt?.de ?? "",
   });
-  const [editorialNote, setEditorialNote] = useState(post.editorialNote ?? "");
+  const [editorialNote, setEditorialNote] = useState<Record<LocaleKey, string>>({
+    zh: post.editorialNote?.zh ?? "", en: post.editorialNote?.en ?? "",
+    ja: post.editorialNote?.ja ?? "", de: post.editorialNote?.de ?? "",
+  });
   const [audience, setAudience] = useState(post.audience ?? "both");
   const [sourceUrl, setSourceUrl] = useState(post.sourceUrl ?? "");
   const [activeLocale, setActiveLocale] = useState<LocaleKey>("zh");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [translatingNote, setTranslatingNote] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+
+  async function translateEditorialNote() {
+    if (!editorialNote.zh?.trim()) { showToast("請先填寫中文觀點"); return; }
+    setTranslatingNote(true);
+    try {
+      const res = await fetch("/api/admin/posts/translate-editorial", {
+        method: "POST", headers,
+        body: JSON.stringify({ postId: post._id, zh: editorialNote.zh }),
+      });
+      const data = await res.json() as { ok?: boolean; translations?: Record<string, string>; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setEditorialNote((prev) => ({ ...prev, ...data.translations }));
+      showToast("✅ 三語翻譯完成");
+    } catch (err) {
+      showToast(`翻譯失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setTranslatingNote(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -127,17 +150,37 @@ function EditPane({ post, token, onDone }: { post: DraftPost; token: string; onD
         </div>
 
         <div style={{ overflow: "auto", flex: 1, padding: "20px" }}>
-          {/* Editorial note — the critical one-liner */}
+          {/* Editorial note — multilingual one-liner */}
           <div style={{ marginBottom: 20, padding: 14, background: "#1a1c1a", border: "1px solid #2a402a", borderRadius: 6 }}>
-            <label style={{ ...labelBase, color: "#4caf50" }}>編輯觀點</label>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 8, gap: 8 }}>
+              <label style={{ ...labelBase, color: "#4caf50", marginBottom: 0 }}>編輯觀點</label>
+              <div style={{ display: "flex", gap: 2, marginLeft: 4 }}>
+                {LOCALES.map((l) => (
+                  <button key={l} onClick={() => setActiveLocale(l)}
+                    style={{ padding: "3px 10px", background: "none", border: "none",
+                      borderBottom: activeLocale === l ? "2px solid #4caf50" : "2px solid transparent",
+                      color: activeLocale === l ? "#4caf50" : "#5a5650", cursor: "pointer", fontSize: 11, fontWeight: activeLocale === l ? 600 : 400 }}>
+                    {l.toUpperCase()}
+                    {editorialNote[l] ? " ✓" : ""}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={translateEditorialNote}
+                disabled={translatingNote || !editorialNote.zh?.trim()}
+                style={{ marginLeft: "auto", padding: "4px 12px", background: translatingNote ? "#2a402a" : "#1e3a1e", border: "1px solid #2a402a", borderRadius: 4, color: translatingNote ? "#4a6a4a" : "#4caf50", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+              >
+                {translatingNote ? "翻譯中…" : "🤖 AI 翻譯（zh→en/ja/de）"}
+              </button>
+            </div>
             <textarea
-              value={editorialNote}
-              onChange={(e) => setEditorialNote(e.target.value)}
-              placeholder="這件事對台灣廠商意味著什麼？"
+              value={editorialNote[activeLocale]}
+              onChange={(e) => setEditorialNote((n) => ({ ...n, [activeLocale]: e.target.value }))}
+              placeholder={activeLocale === "zh" ? "這件事對台灣廠商意味著什麼？" : `${activeLocale.toUpperCase()} translation`}
               rows={3}
               style={{ ...inputBase, border: "1px solid #2a402a", resize: "vertical", lineHeight: 1.6 }}
             />
-            <div style={{ fontSize: 11, color: "#4a6a4a", marginTop: 4 }}>會顯示在文章頂端，代表 Pedaling Forward 的觀點。</div>
+            <div style={{ fontSize: 11, color: "#4a6a4a", marginTop: 4 }}>先用中文寫觀點，再按 AI 翻譯填入英/日/德版本。</div>
           </div>
 
           {/* Meta */}
@@ -380,9 +423,9 @@ export default function ComposePage() {
                     </span>
                   )}
                 </div>
-                {post.editorialNote && (
+                {post.editorialNote?.zh && (
                   <div style={{ fontSize: 12, color: "#4caf50", marginBottom: 4, fontStyle: "italic" }}>
-                    「{post.editorialNote}」
+                    「{post.editorialNote.zh}」
                   </div>
                 )}
                 {post.excerpt?.zh && (
@@ -414,7 +457,7 @@ export default function ComposePage() {
                   <div style={{ fontSize: 11, color: "#5a5650" }}>（來源日期未知）</div>
                 )}
                 <div style={{ fontSize: 10, color: "#5a5650" }}>收錄 {fmt(post._createdAt)}</div>
-                {activeStatus === "draft" && !post.editorialNote && (
+                {activeStatus === "draft" && !post.editorialNote?.zh && (
                   <div style={{ fontSize: 11, color: "#D5352A" }}>⚠ 缺備注</div>
                 )}
                 {activeStatus === "published" && (
