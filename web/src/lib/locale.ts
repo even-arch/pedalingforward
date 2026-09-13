@@ -1,12 +1,15 @@
 type LocalizedValue =
   | { en?: string | null; zh?: string | null; ja?: string | null; de?: string | null }
+  | string
   | null
   | undefined
 
 export function loc(value: LocalizedValue, locale: string): string {
   if (!value) return ''
+  // Backward compat: old posts stored editorialNote as a plain string (treated as zh)
+  if (typeof value === 'string') return value
   const keyed = value as Record<string, string | null | undefined>
-  return keyed[locale] || keyed['en'] || ''
+  return keyed[locale] || keyed['en'] || keyed['zh'] || ''
 }
 
 export function formatDate(iso: string | null | undefined, locale: string): string {
