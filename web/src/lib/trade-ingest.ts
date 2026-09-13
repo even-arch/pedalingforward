@@ -2,9 +2,9 @@ import { db } from "./db";
 
 const BASE = "https://comtradeapi.un.org/public/v1/preview/C/M/HS";
 
-// Max periods per single Comtrade API call. Preview API supports comma-separated periods;
-// batching 12 months per call gives 12× throughput vs one-month-per-call.
-const BATCH_MONTHS = 12;
+// Comtrade public preview API does NOT support comma-separated periods —
+// each call must query exactly one month. Keep at 1.
+const BATCH_MONTHS = 1;
 
 const IMPORT_MARKETS: { code: string; reporterCode: number }[] = [
   { code: "DE", reporterCode: 276 },
