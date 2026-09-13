@@ -264,6 +264,7 @@ export default function ComposePage() {
   const [autoTagging, setAutoTagging] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [repairingDates, setRepairingDates] = useState(false);
+  const [translatingBatch, setTranslatingBatch] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -317,6 +318,22 @@ export default function ComposePage() {
     }
   }
 
+  async function translateBatchNotes() {
+    setTranslatingBatch(true);
+    try {
+      const res = await fetch("/api/admin/posts/translate-editorial-batch", { method: "POST", headers });
+      const d = await res.json() as { ok?: boolean; translated?: number; skipped?: number; total?: number; errors?: string[]; error?: string };
+      if (!res.ok) { showToast(`失敗：${d.error ?? `HTTP ${res.status}`}`); return; }
+      const errNote = d.errors?.length ? `（${d.errors.length} 筆出錯）` : "";
+      showToast(`完成：${d.translated}/${d.total} 篇觀點已補翻${errNote}，略過 ${d.skipped} 篇`);
+      load();
+    } catch (err) {
+      showToast(`失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setTranslatingBatch(false);
+    }
+  }
+
   async function repairBodies() {
     setRepairing(true);
     try {
@@ -364,11 +381,15 @@ export default function ComposePage() {
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#fff" }}>文章管理</h1>
         {activeStatus === "published" && (
           <>
-            <button onClick={autoTagPublished} disabled={autoTagging || repairing}
+            <button onClick={autoTagPublished} disabled={autoTagging || repairing || translatingBatch}
               style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
               {autoTagging ? "補標籤中…" : "AI 補標籤（無標籤文章）"}
             </button>
-            <button onClick={repairBodies} disabled={repairing || autoTagging || repairingDates}
+            <button onClick={translateBatchNotes} disabled={translatingBatch || autoTagging || repairing}
+              style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+              {translatingBatch ? "翻譯中…" : "AI 補翻觀點（已發布）"}
+            </button>
+            <button onClick={repairBodies} disabled={repairing || autoTagging || repairingDates || translatingBatch}
               style={{ padding: "6px 14px", background: "#1e1c19", border: "1px solid #2a2824", color: "#c8c4c0", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
               {repairing ? "修復中…" : "修復段落重複"}
             </button>
