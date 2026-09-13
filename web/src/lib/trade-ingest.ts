@@ -2,6 +2,10 @@ import { db } from "./db";
 
 const BASE = "https://comtradeapi.un.org/public/v1/preview/C/M/HS";
 
+// Max periods per single Comtrade API call. Preview API supports comma-separated periods;
+// batching 12 months per call gives 12× throughput vs one-month-per-call.
+const BATCH_MONTHS = 12;
+
 const IMPORT_MARKETS: { code: string; reporterCode: number }[] = [
   { code: "DE", reporterCode: 276 },
   { code: "US", reporterCode: 842 },
@@ -19,7 +23,6 @@ const EXPORT_ORIGINS: { code: string; reporterCode: number }[] = [
 ];
 
 // Bilateral partner countries to track for each import market.
-// Expanded from the original 6 to cover major EU and Asian suppliers surfaced by Comtrade data.
 const BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
   { code: "TW", partnerCode: 490 },
   { code: "CN", partnerCode: 156 },
@@ -27,15 +30,15 @@ const BILATERAL_PARTNERS: { code: string; partnerCode: number }[] = [
   { code: "VN", partnerCode: 704 },
   { code: "PL", partnerCode: 616 },
   { code: "JP", partnerCode: 392 },
-  { code: "CZ", partnerCode: 203 },  // Czech Republic — significant EU supplier (~$7M/mo to DE)
-  { code: "TH", partnerCode: 764 },  // Thailand — growing supplier (~$5.5M/mo to DE)
-  { code: "PT", partnerCode: 620 },  // Portugal — significant to DE (~$3-6M/mo)
-  { code: "FR", partnerCode: 251 },  // France — EU supplier (~$1.7M/mo)
-  { code: "BE", partnerCode: 56  },  // Belgium — EU supplier (~$1-3M/mo)
-  { code: "AT", partnerCode: 40  },  // Austria — EU supplier (~$5M/mo to DE)
-  { code: "GB", partnerCode: 826 },  // UK — supplier to EU markets
-  { code: "KR", partnerCode: 410 },  // South Korea
-  { code: "MY", partnerCode: 458 },  // Malaysia — SE Asian supplier
+  { code: "CZ", partnerCode: 203 },
+  { code: "TH", partnerCode: 764 },
+  { code: "PT", partnerCode: 620 },
+  { code: "FR", partnerCode: 251 },
+  { code: "BE", partnerCode: 56  },
+  { code: "AT", partnerCode: 40  },
+  { code: "GB", partnerCode: 826 },
+  { code: "KR", partnerCode: 410 },
+  { code: "MY", partnerCode: 458 },
 ];
 
 // 871430 = e-bike parts (sub-code of 8714); 871160 = complete e-bikes with electric motor
@@ -54,6 +57,8 @@ function currentYYYYMM(): string {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Returns the latest ATTEMPTED period (value may be 0) — not just periods with data.
+// This prevents re-querying months that returned no trade data.
 async function getLatestPeriod(reporterCode: string, hsCode: string, flow: string, partnerCode = "WORLD") {
   const rec = await db.tradeMetric.findFirst({
     where: { reporterCode, hsCode, flow, partnerCode },
@@ -79,6 +84,7 @@ async function upsertMetric(args: {
   });
 }
 
+// Fetches one API call (may cover multiple months via comma-separated period).
 async function fetchComtrade(url: string): Promise<{ ok: boolean; status?: number; data: unknown[] }> {
   const res = await fetch(url, { cache: "no-store" });
   await new Promise((r) => setTimeout(r, 200));
@@ -87,7 +93,13 @@ async function fetchComtrade(url: string): Promise<{ ok: boolean; status?: numbe
   return { ok: true, data: json.data ?? [] };
 }
 
-type ComtradeRow = { flowCode: string; partnerCode: number; partner2Code: number; primaryValue: number };
+type ComtradeRow = {
+  flowCode: string;
+  partnerCode: number;
+  partner2Code: number;
+  primaryValue: number;
+  period: number; // e.g. 202301
+};
 
 export type IngestResult = {
   task: string; saved: number; latestPeriod?: string; error?: string; limitReached?: boolean;
@@ -102,179 +114,198 @@ async function updateProgress(runId: string, callCount: number, totalSaved: numb
   } catch { /* ignore — column may not exist yet */ }
 }
 
-export async function ingestComtradeUpdates(triggeredBy: "cron" | "manual" = "manual", maxCalls = 50): Promise<IngestResult[]> {
+// Process a batch of months for a given reporter+partner+flow+hsCode combination.
+// Returns { saved, error } where saved = count of periods written (including 0-value periods).
+async function processBatches(opts: {
+  months: string[];
+  url: (batch: string[]) => string;
+  filterRow: (r: ComtradeRow) => boolean;
+  saveMetric: (period: string, value: number) => Promise<void>;
+  maxCalls: number;
+  callCountRef: { v: number };
+  limitReachedRef: { v: boolean };
+}): Promise<{ saved: number; error?: string; limitReached: boolean }> {
+  const { months, url, filterRow, saveMetric, maxCalls, callCountRef, limitReachedRef } = opts;
+  let saved = 0;
+  let error: string | undefined;
+  let limitReached = false;
+
+  for (let i = 0; i < months.length; i += BATCH_MONTHS) {
+    if (callCountRef.v >= maxCalls) { limitReached = true; limitReachedRef.v = true; break; }
+
+    const batch = months.slice(i, i + BATCH_MONTHS);
+    const { ok, status, data } = await fetchComtrade(url(batch));
+    callCountRef.v++;
+
+    if (!ok) {
+      error = `HTTP ${status} @ ${batch[0]}${batch.length > 1 ? `–${batch[batch.length - 1]}` : ""}`;
+      continue;
+    }
+
+    // Group values by period from the batch response.
+    // Initialize all batch months to 0 so that months with no data also get saved,
+    // preventing them from being re-queried on the next run.
+    const byPeriod = new Map<string, number>();
+    for (const m of batch) byPeriod.set(m, 0);
+
+    for (const r of data as ComtradeRow[]) {
+      if (filterRow(r) && r.primaryValue > 0) {
+        const p = String(r.period);
+        byPeriod.set(p, (byPeriod.get(p) ?? 0) + r.primaryValue);
+      }
+    }
+
+    for (const [period, value] of byPeriod) {
+      const dbPeriod = `${period.slice(0, 4)}-${period.slice(4)}`;
+      await saveMetric(dbPeriod, value);
+      saved++;
+    }
+  }
+
+  return { saved, error, limitReached };
+}
+
+export type IngestOptions = {
+  triggeredBy?: "cron" | "manual";
+  maxCalls?: number;
+  /** Skip bilateral section (section 3) — use for fast historical backfill of totals */
+  skipBilateral?: boolean;
+  /** Restrict to these HS codes only (default: all) */
+  hsCodes?: string[];
+  /** Override start period for all tasks (YYYYMM, e.g. "201901") */
+  fromPeriod?: string;
+};
+
+export async function ingestComtradeUpdates(
+  triggeredByOrOpts: "cron" | "manual" | IngestOptions = "manual",
+  maxCallsLegacy = 50,
+): Promise<IngestResult[]> {
+  // Support both old call signature (string, number) and new options object
+  const opts: IngestOptions = typeof triggeredByOrOpts === "string"
+    ? { triggeredBy: triggeredByOrOpts, maxCalls: maxCallsLegacy }
+    : triggeredByOrOpts;
+
+  const triggeredBy = opts.triggeredBy ?? "manual";
+  const maxCalls = opts.maxCalls ?? maxCallsLegacy;
+  const skipBilateral = opts.skipBilateral ?? false;
+  const hsCodesToRun = opts.hsCodes ? HS_CODES.filter(c => opts.hsCodes!.includes(c)) : HS_CODES;
+
   const run = await db.tradeIngestRun.create({
     data: { triggeredBy, status: "running" },
   });
 
   const results: IngestResult[] = [];
   const upTo = currentYYYYMM();
-  let callCount = 0;
-  let limitReached = false;
+  const callCountRef = { v: 0 };
+  const limitReachedRef = { v: false };
   let lastProgressUpdate = 0;
 
-  // ── 1. Import markets (HS8714 + HS8712) ──────────────────────────────────
+  function maybeUpdateProgress() {
+    if (callCountRef.v - lastProgressUpdate >= 30) {
+      lastProgressUpdate = callCountRef.v;
+      updateProgress(run.id, callCountRef.v, results.reduce((s, r) => s + r.saved, 0));
+    }
+  }
+
+  // ── 1. Import markets (WORLD totals) ─────────────────────────────────────
   outer1: for (const { code, reporterCode } of IMPORT_MARKETS) {
-    for (const hsCode of HS_CODES) {
-      if (callCount >= maxCalls) { limitReached = true; break outer1; }
+    for (const hsCode of hsCodesToRun) {
+      if (limitReachedRef.v) break outer1;
 
       const latest = await getLatestPeriod(code, hsCode, "import");
-      const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
+      const startFrom = opts.fromPeriod ?? (latest ? addMonths(latest.replace("-", ""), 1) : "201901");
       if (startFrom > upTo) continue;
 
       const months: string[] = [];
       let cur = startFrom;
       while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
 
-      let saved = 0;
-      let error: string | undefined;
-      let taskLimitReached = false;
-      for (const period of months) {
-        if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
-        const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
-        const { ok, status, data } = await fetchComtrade(url);
-        callCount++;
-        if (callCount - lastProgressUpdate >= 30) {
-          lastProgressUpdate = callCount;
-          await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
-        }
-        if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
+      const { saved, error, limitReached } = await processBatches({
+        months,
+        url: (batch) => `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${batch.join(",")}&cmdCode=${hsCode}`,
+        filterRow: (r) => r.flowCode === "M" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0),
+        saveMetric: (period, value) => upsertMetric({ hsCode, reporterCode: code, partnerCode: "WORLD", flow: "import", period, value }),
+        maxCalls, callCountRef, limitReachedRef,
+      });
 
-        const total = (data as ComtradeRow[])
-          .filter((r) => r.flowCode === "M" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0) && r.primaryValue > 0)
-          .reduce((s, r) => s + r.primaryValue, 0);
-
-        if (total > 0) {
-          await upsertMetric({ hsCode, reporterCode: code, partnerCode: "WORLD", flow: "import", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total });
-          saved++;
-        }
-      }
+      maybeUpdateProgress();
       const newLatest = await getLatestPeriod(code, hsCode, "import");
-      results.push({ task: `${code} ${hsCode} import`, saved, latestPeriod: newLatest ?? undefined, error, ...(taskLimitReached && { limitReached: true }) });
-      if (limitReached) break outer1;
+      results.push({ task: `${code} ${hsCode} import`, saved, latestPeriod: newLatest ?? undefined, error, ...(limitReached && { limitReached: true }) });
     }
   }
 
   // ── 2. Export totals (major exporters) ───────────────────────────────────
-  if (!limitReached) {
-  outer2: for (const { code, reporterCode } of EXPORT_ORIGINS) {
-    for (const hsCode of HS_CODES) {
-      if (callCount >= maxCalls) { limitReached = true; break outer2; }
+  if (!limitReachedRef.v) {
+    outer2: for (const { code, reporterCode } of EXPORT_ORIGINS) {
+      for (const hsCode of hsCodesToRun) {
+        if (limitReachedRef.v) break outer2;
 
-      const latest = await getLatestPeriod(code, hsCode, "export");
-      const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
-      if (startFrom > upTo) continue;
-
-      const months: string[] = [];
-      let cur = startFrom;
-      while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
-
-      let saved = 0;
-      let error: string | undefined;
-      let taskLimitReached = false;
-      for (const period of months) {
-        if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
-        const url = `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${period}&cmdCode=${hsCode}`;
-        const { ok, status, data } = await fetchComtrade(url);
-        callCount++;
-        if (callCount - lastProgressUpdate >= 30) {
-          lastProgressUpdate = callCount;
-          await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
-        }
-        if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
-
-        const total = (data as ComtradeRow[])
-          .filter((r) => r.flowCode === "X" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0) && r.primaryValue > 0)
-          .reduce((s, r) => s + r.primaryValue, 0);
-
-        if (total > 0) {
-          await upsertMetric({ hsCode, reporterCode: code, partnerCode: "WORLD", flow: "export", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total });
-          saved++;
-        }
-      }
-      results.push({ task: `${code} ${hsCode} export`, saved, error, ...(taskLimitReached && { limitReached: true }) });
-      if (limitReached) break outer2;
-    }
-  }
-  }
-
-  // ── 3. Bilateral import breakdown (one API call per market × partner × HS × month) ─────────
-  if (!limitReached) {
-  outer3: for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
-    for (const { code: partnerISO, partnerCode } of BILATERAL_PARTNERS) {
-      if (partnerISO === marketCode) continue; // skip self (e.g. JP market + JP partner)
-      for (const hsCode of HS_CODES) {
-        if (callCount >= maxCalls) { limitReached = true; break outer3; }
-
-        const dbPartnerCode = `PARTNER_${partnerISO}`;
-        const latest = await getLatestPeriod(marketCode, hsCode, "import", dbPartnerCode);
-        const startFrom = latest ? addMonths(latest.replace("-", ""), 1) : "201901";
+        const latest = await getLatestPeriod(code, hsCode, "export");
+        const startFrom = opts.fromPeriod ?? (latest ? addMonths(latest.replace("-", ""), 1) : "201901");
         if (startFrom > upTo) continue;
 
         const months: string[] = [];
         let cur = startFrom;
         while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
 
-        let saved = 0;
-        let error: string | undefined;
-        let taskLimitReached = false;
-        for (const period of months) {
-          if (callCount >= maxCalls) { taskLimitReached = true; limitReached = true; break; }
-          const url = `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${period}&cmdCode=${hsCode}`;
-          const { ok, status, data } = await fetchComtrade(url);
-          callCount++;
-          if (callCount - lastProgressUpdate >= 30) {
-            lastProgressUpdate = callCount;
-            await updateProgress(run.id, callCount, results.reduce((s, r) => s + r.saved, 0) + saved);
-          }
-          if (!ok) { error = `HTTP ${status} @ ${period}`; continue; }
+        const { saved, error, limitReached } = await processBatches({
+          months,
+          url: (batch) => `${BASE}?reporterCode=${reporterCode}&partnerCode=0&period=${batch.join(",")}&cmdCode=${hsCode}`,
+          filterRow: (r) => r.flowCode === "X" && r.partnerCode === 0 && (!r.partner2Code || r.partner2Code === 0),
+          saveMetric: (period, value) => upsertMetric({ hsCode, reporterCode: code, partnerCode: "WORLD", flow: "export", period, value }),
+          maxCalls, callCountRef, limitReachedRef,
+        });
 
-          const total = (data as ComtradeRow[])
-            .filter((r) => r.flowCode === "M" && r.primaryValue > 0)
-            .reduce((s, r) => s + r.primaryValue, 0);
-
-          if (total > 0) {
-            await upsertMetric({
-              hsCode, reporterCode: marketCode, partnerCode: dbPartnerCode,
-              flow: "import", period: `${period.slice(0, 4)}-${period.slice(4)}`, value: total,
-            });
-            saved++;
-          }
-        }
-        results.push({ task: `${marketCode}←${partnerISO} ${hsCode}`, saved, error, ...(taskLimitReached && { limitReached: true }) });
-        if (limitReached) break outer3;
+        maybeUpdateProgress();
+        results.push({ task: `${code} ${hsCode} export`, saved, error, ...(limitReached && { limitReached: true }) });
       }
     }
   }
+
+  // ── 3. Bilateral import breakdown ────────────────────────────────────────
+  if (!limitReachedRef.v && !skipBilateral) {
+    outer3: for (const { code: marketCode, reporterCode: marketReporter } of IMPORT_MARKETS) {
+      for (const { code: partnerISO, partnerCode } of BILATERAL_PARTNERS) {
+        if (partnerISO === marketCode) continue;
+        for (const hsCode of hsCodesToRun) {
+          if (limitReachedRef.v) break outer3;
+
+          const dbPartnerCode = `PARTNER_${partnerISO}`;
+          const latest = await getLatestPeriod(marketCode, hsCode, "import", dbPartnerCode);
+          const startFrom = opts.fromPeriod ?? (latest ? addMonths(latest.replace("-", ""), 1) : "201901");
+          if (startFrom > upTo) continue;
+
+          const months: string[] = [];
+          let cur = startFrom;
+          while (cur <= upTo) { months.push(cur); cur = addMonths(cur, 1); }
+
+          const { saved, error, limitReached } = await processBatches({
+            months,
+            url: (batch) => `${BASE}?reporterCode=${marketReporter}&partnerCode=${partnerCode}&period=${batch.join(",")}&cmdCode=${hsCode}`,
+            filterRow: (r) => r.flowCode === "M",
+            saveMetric: (period, value) => upsertMetric({ hsCode, reporterCode: marketCode, partnerCode: dbPartnerCode, flow: "import", period, value }),
+            maxCalls, callCountRef, limitReachedRef,
+          });
+
+          maybeUpdateProgress();
+          results.push({ task: `${marketCode}←${partnerISO} ${hsCode}`, saved, error, ...(limitReached && { limitReached: true }) });
+        }
+      }
+    }
   }
 
   const totalSaved = results.reduce((s, r) => s + r.saved, 0);
   const totalErrors = results.filter((r) => r.error).length;
 
-  // callsUsed is saved separately to avoid failing if the column isn't in the DB yet
   try {
     await db.tradeIngestRun.update({
       where: { id: run.id },
-      data: {
-        status: "done",
-        finishedAt: new Date(),
-        totalSaved,
-        totalErrors,
-        callsUsed: callCount,
-        results: results as object[],
-      },
+      data: { status: "done", finishedAt: new Date(), totalSaved, totalErrors, callsUsed: callCountRef.v, results: results as object[] },
     });
   } catch {
-    // Fallback without callsUsed if the column doesn't exist yet
     await db.tradeIngestRun.update({
       where: { id: run.id },
-      data: {
-        status: "done",
-        finishedAt: new Date(),
-        totalSaved,
-        totalErrors,
-        results: results as object[],
-      },
+      data: { status: "done", finishedAt: new Date(), totalSaved, totalErrors, results: results as object[] },
     });
   }
 

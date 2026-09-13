@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
   }).catch(() => { /* ignore */ });
   try {
-    const results = await ingestComtradeUpdates("cron", 400);
+    const results = await ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 });
     const totalSaved = results.reduce((s, r) => s + r.saved, 0);
     return Response.json({ ok: true, results, totalSaved });
   } catch (err) {
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
   if (isCron) {
     try {
-      const results = await ingestComtradeUpdates("cron", 400);
+      const results = await ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 });
       const totalSaved = results.reduce((s, r) => s + r.saved, 0);
       return Response.json({ ok: true, results, totalSaved });
     } catch (err) {
@@ -62,9 +62,8 @@ export async function POST(req: Request) {
   }
 
   // Manual trigger: return immediately, run in background
-  // 400 calls ≈ most of the Comtrade free-tier daily quota (500/day)
   waitUntil(
-    ingestComtradeUpdates("manual", 400).catch((err) => {
+    ingestComtradeUpdates({ triggeredBy: "manual", maxCalls: 400 }).catch((err) => {
       console.error("[ingest-trade] background task failed:", err);
     })
   );
