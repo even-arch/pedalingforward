@@ -14,6 +14,17 @@ const LOCALE_LABELS: Record<Locale, string> = {
   de: "DE",
 };
 
+// Patisco locale-specific store URLs.
+// When the Point Asia product catalogue is ready, switch the header CTA to use this map.
+// Pattern: each locale has its own Patisco storefront URL.
+// TODO: confirm exact locale URL paths with Patisco team before enabling.
+const PATISCO_STORE_URLS: Record<Locale, string> = {
+  en: "https://pointasia.patisco.com",
+  zh: "https://pointasia.patisco.com",
+  ja: "https://pointasia.patisco.com",
+  de: "https://pointasia.patisco.com",
+};
+
 const NAV_ITEMS = [
   { key: "shops",        msgKey: "forShops" },
   { key: "suppliers",    msgKey: "forSuppliers" },
@@ -102,7 +113,7 @@ export default function Header() {
                 )
               ))}
             </div>
-            <a href="https://patisco.com" target="_blank" rel="noopener noreferrer" className="btn header-cta">
+            <a href={PATISCO_STORE_URLS[locale]} target="_blank" rel="noopener noreferrer" className="btn header-cta">
               {t("goToPatisco")}
             </a>
           </div>
@@ -163,7 +174,7 @@ export default function Header() {
                 )
               ))}
             </div>
-            <a href="https://patisco.com" target="_blank" rel="noopener noreferrer" className="btn">
+            <a href={PATISCO_STORE_URLS[locale]} target="_blank" rel="noopener noreferrer" className="btn">
               {t("goToPatisco")}
             </a>
           </div>

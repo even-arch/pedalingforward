@@ -31,7 +31,7 @@ export default async function Footer() {
           <div>
             <h5>{t("tradeHeading")}</h5>
             <div className="flist">
-              <a href="https://patisco.com" target="_blank" rel="noopener noreferrer">
+              <a href="https://pointasia.patisco.com" target="_blank" rel="noopener noreferrer">
                 {t("patiscoLink")}
               </a>
               <a href="#">{t("writingLink")}</a>

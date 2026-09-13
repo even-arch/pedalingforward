@@ -33,7 +33,7 @@ export const STATIC_PAGE_DEFAULTS: Record<string, any> = {
         { _key: "st4", title: ls("Group buy opens","團購開跑","グループバイ開始","Gruppenbestellung"), body: lt("When demand is confirmed, the order goes live on Patisco.","需求確認後，訂單在 Patisco 上線。","需要が確認されたら Patisco で注文が公開される。","Wenn die Nachfrage bestätigt ist, geht die Bestellung auf Patisco live.") },
         { _key: "st5", title: ls("Order & receive","下單收貨","注文・受け取り","Bestellen & empfangen"), body: lt("Order, pay locally, and receive your stock.","下單、當地付款、收到貨品。","注文、現地払い、商品受け取り。","Bestellen, lokal bezahlen und Ihre Ware empfangen.") },
       ]},
-      { _key: "cta", _type: "ctaSection", heading: ls("Apply as a shop member","申請車店會員","ショップ会員として申し込む","Als Shop-Mitglied bewerben"), buttonLabel: ls("Start the application →","開始申請 →","申し込みを始める →","Bewerbung starten →"), finePrint: ls("Membership is free. Applications are reviewed by our team at Point Asia.","會員資格免費。申請由 Point Asia 團隊審核。","会員資格は無料。申請は Point Asia チームが審査します。","Mitgliedschaft kostenlos. Bewerbungen werden von unserem Team bei Point Asia geprüft."), href: "#" },
+      { _key: "cta", _type: "ctaSection", heading: ls("Apply as a shop member","申請車店會員","ショップ会員として申し込む","Als Shop-Mitglied bewerben"), buttonLabel: ls("Start the application →","開始申請 →","申し込みを始める →","Bewerbung starten →"), finePrint: ls("Membership is free. Applications are reviewed by our team at Point Asia.","會員資格免費。申請由 Point Asia 團隊審核。","会員資格は無料。申請は Point Asia チームが審査します。","Mitgliedschaft kostenlos. Bewerbungen werden von unserem Team bei Point Asia geprüft."), href: "https://pointasia.patisco.com" },
     ],
   },
 
@@ -61,7 +61,7 @@ export const STATIC_PAGE_DEFAULTS: Record<string, any> = {
         { _key: "b3", title: ls("Qualified buyers only","只有通過認證的買家","認証済みバイヤーのみ","Nur qualifizierte Käufer"), body: lt("Every member is verified by our team at Point Asia. You're talking to trade professionals — shop owners, buyers, distributors.","每位會員都由 Point Asia 團隊審核。你面對的是專業業者——車店主、買家、通路商。","すべての会員は Point Asia チームによって審査されている。","Jedes Mitglied wird von unserem Team bei Point Asia verifiziert.") },
         { _key: "b4", title: ls("You stay in control","你主導一切","主導権はあなたに","Sie behalten die Kontrolle"), body: lt("You set the terms. We facilitate the connection and handle order logistics through Patisco.","你定條件。我們透過 Patisco 促成連結、處理訂單物流。","条件はあなたが決める。","Sie legen die Bedingungen fest.") },
       ]},
-      { _key: "cta", _type: "ctaSection", heading: ls("List your products","刊登你的產品","製品を掲載する","Ihre Produkte listen"), buttonLabel: ls("Talk to us →","與我們洽談 →","お問い合わせ →","Mit uns sprechen →"), finePrint: ls("We're selective about what we feature. If your products are worth knowing, we'd like to hear from you.","我們對刊登內容有所選擇。如果你的產品值得被認識，歡迎與我們聯絡。","掲載内容には選択基準があります。","Wir sind selektiv."), href: "#" },
+      { _key: "cta", _type: "ctaSection", heading: ls("List your products","刊登你的產品","製品を掲載する","Ihre Produkte listen"), buttonLabel: ls("Talk to us →","與我們洽談 →","お問い合わせ →","Mit uns sprechen →"), finePrint: ls("We're selective about what we feature. If your products are worth knowing, we'd like to hear from you.","我們對刊登內容有所選擇。如果你的產品值得被認識，歡迎與我們聯絡。","掲載内容には選択基準があります。","Wir sind selektiv."), href: "https://pointasia.patisco.com" },
     ],
   },
 
@@ -83,7 +83,7 @@ export const STATIC_PAGE_DEFAULTS: Record<string, any> = {
         { _key: "b3", title: ls("Better margin","更好的利潤","より良い利益","Bessere Marge"), body: lt("Fewer hands between the factory and your warehouse. The math works differently when you buy closer to the source.","工廠到你倉庫之間的中間層更少。買得越接近源頭，帳就算得越漂亮。","工場からあなたの倉庫までの中間業者が減る。","Weniger Hände zwischen Fabrik und Ihrem Lager.") },
         { _key: "b4", title: ls("Pay locally, receive door-to-door","當地幣別付款，直送到府","現地払い・ドアツードア配送","Lokal zahlen, Haustürlieferung"), body: lt("Patisco handles the transaction in your local currency. Your stock ships direct from Taiwan to your door.","Patisco 以你的當地幣別處理付款。貨品從台灣直送到你的門口。","Patisco が現地通貨で取引を処理する。","Patisco wickelt die Transaktion in Ihrer Landeswährung ab.") },
       ]},
-      { _key: "cta", _type: "ctaSection", heading: ls("Apply as a distributor","申請成為通路商","ディストリビューターとして申し込む","Als Händler bewerben"), buttonLabel: ls("Start the application →","開始申請 →","申し込みを始める →","Bewerbung starten →"), finePrint: ls("Applications are reviewed by our team at Point Asia.","申請由 Point Asia 團隊審核。","申請は Point Asia チームが審査します。","Bewerbungen werden von unserem Team bei Point Asia geprüft."), href: "#" },
+      { _key: "cta", _type: "ctaSection", heading: ls("Apply as a distributor","申請成為通路商","ディストリビューターとして申し込む","Als Händler bewerben"), buttonLabel: ls("Start the application →","開始申請 →","申し込みを始める →","Bewerbung starten →"), finePrint: ls("Applications are reviewed by our team at Point Asia.","申請由 Point Asia 團隊審核。","申請は Point Asia チームが審査します。","Bewerbungen werden von unserem Team bei Point Asia geprüft."), href: "https://pointasia.patisco.com" },
     ],
   },
 
