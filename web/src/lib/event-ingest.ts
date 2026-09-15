@@ -1,59 +1,57 @@
 import { db } from "./db";
 import { client } from "@/sanity/client";
 
-// Country keyword detection from article title
-const COUNTRY_PATTERNS: [string, RegExp][] = [
-  ["USA", /\b(United States|American|U\.S\.|US |Biden|Trump|Washington)\b/i],
-  ["DEU", /\b(German[y]?|Berlin)\b/i],
-  ["JPN", /\b(Japan(ese)?|Tokyo)\b/i],
-  ["TWN", /\b(Taiwan(ese)?)\b/i],
-  ["CHN", /\b(China|Chinese|Beijing)\b/i],
-  ["NLD", /\b(Netherlands|Dutch|Holland)\b/i],
-  ["GBR", /\b(British|Britain|UK |England)\b/i],
-  ["ITA", /\b(Italian|Italy)\b/i],
-  ["VNM", /\b(Vietnam(ese)?)\b/i],
-  ["POL", /\b(Poland|Polish)\b/i],
-  ["FRA", /\b(France|French)\b/i],
-  ["BEL", /\b(Belgium|Belgian)\b/i],
-  ["AUT", /\b(Austria[n]?)\b/i],
-  ["ESP", /\b(Spain|Spanish)\b/i],
-  ["KOR", /\b(Korea[n]?|Seoul)\b/i],
-];
+// sourceRegion (2-letter ISO or region marker) → our 3-letter country code
+const REGION_TO_CODE: Record<string, string> = {
+  DE: "DEU", AT: "AUT", CH: "CHE", NL: "NLD", BE: "BEL", FR: "FRA",
+  IT: "ITA", ES: "ESP", PL: "POL", DK: "DNK", SE: "SWE", FI: "FIN",
+  GB: "GBR", UK: "GBR",
+  US: "USA", CA: "CAN", AU: "AUS",
+  TW: "TWN", CN: "CHN", JP: "JPN", KR: "KOR", VN: "VNM", TH: "THA",
+  // EU = pan-European (keep as-is for now)
+};
 
-function countriesFromTitle(title: string): string[] {
-  return COUNTRY_PATTERNS.filter(([, re]) => re.test(title)).map(([code]) => code);
-}
+// filter-media geo tags (lowercase country names) → 3-letter codes
+const GEO_TAG_TO_CODE: Record<string, string> = {
+  taiwan: "TWN", japan: "JPN", china: "CHN", germany: "DEU",
+  netherlands: "NLD", uk: "GBR", us: "USA", france: "FRA",
+  italy: "ITA", belgium: "BEL", denmark: "DNK", sweden: "SWE",
+  poland: "POL", vietnam: "VNM", korea: "KOR", austria: "AUT",
+};
 
-// Tag classification from article text
-const TAG_RULES: { keywords: string[]; tag: string }[] = [
-  { keywords: ["tariff", "duty", "customs", "trade policy", "trade war", "anti-dumping"], tag: "tariff" },
-  { keywords: ["supply chain", "disruption", "shortage", "factory", "manufacturer", "production"], tag: "supply_chain" },
-  { keywords: ["demand", "recession", "pandemic", "consumer", "sales", "market"], tag: "demand_collapse" },
-  { keywords: ["ebike", "e-bike", "electric bicycle", "electric bike", "regulation", "emission"], tag: "demand_shift" },
-];
-
-function classifyTags(text: string): string[] {
-  const lower = text.toLowerCase();
-  const tags = TAG_RULES.filter((r) => r.keywords.some((k) => lower.includes(k))).map((r) => r.tag);
-  return tags.length > 0 ? [...new Set(tags)] : ["general"];
-}
+// Sanity mediaItem tags → GlobalEvent tags
+// (Sanity: hyphenated; GlobalEvent: underscore-delimited)
+const SANITY_TO_EVENT_TAG: Record<string, string> = {
+  "supply-chain":  "supply_chain",
+  "regulation":    "tariff",
+  "e-bike":        "demand_shift",
+  "urban":         "demand_shift",
+  "cargo-bike":    "demand_shift",
+  "product-launch":"general",
+  "market-news":   "general",
+  "trade-show":    "general",
+  "retail":        "demand_collapse",
+  "tech":          "general",
+  "gravel":        "general",
+  "mtb":           "general",
+  "road":          "general",
+};
 
 type MediaItem = {
   _id: string;
   title: string;
   url: string;
-  publishedAt: string;
+  publishedAt?: string;
+  fetchedAt?: string;
   sourceName?: string;
+  sourceRegion?: string;
+  tags?: string[];       // already set by filter-media AI
+  summary?: string;
   description?: string;
 };
 
 export type EventIngestResult = { query: string; fetched: number; saved: number; error?: string };
 
-// Replace GDELT with Sanity mediaItem (RSS-sourced articles).
-// Advantages over GDELT:
-//  - Dates from RSS pub dates → reliable, no future articles
-//  - Sources curated by us → relevant to bicycle industry
-//  - No external API quota or dependency
 export async function ingestSanityEvents(opts: {
   fromDate?: Date;
 }): Promise<EventIngestResult[]> {
@@ -62,12 +60,16 @@ export async function ingestSanityEvents(opts: {
 
   let items: MediaItem[] = [];
   try {
+    // Only pull items that filter-media has processed (status != 'raw' means tags are set).
+    // Date filter: publishedAt must exist AND be in the past (no future articles).
     items = await client.fetch<MediaItem[]>(
       `*[_type == "mediaItem"
+          && status in ["analyzed", "collected"]
+          && defined(publishedAt)
           && dateTime(publishedAt) >= dateTime($from)
           && dateTime(publishedAt) <= dateTime($now)
-        ] | order(publishedAt desc) [0...400] {
-          _id, title, url, publishedAt, sourceName, description
+        ] | order(publishedAt desc) [0...500] {
+          _id, title, url, publishedAt, fetchedAt, sourceName, sourceRegion, tags, summary, description
         }`,
       { from: fromDate.toISOString(), now: now.toISOString() }
     );
@@ -79,16 +81,33 @@ export async function ingestSanityEvents(opts: {
   for (const item of items) {
     if (!item.url || !item.title) continue;
 
-    const eventDate = new Date(item.publishedAt);
-    // Belt-and-suspenders: never save future-dated events
-    if (eventDate > now) continue;
+    // Use publishedAt; fall back to fetchedAt; reject if still future
+    const rawDate = item.publishedAt ?? item.fetchedAt;
+    if (!rawDate) continue;
+    const eventDate = new Date(rawDate);
+    if (isNaN(eventDate.getTime()) || eventDate > now) continue;
 
     const exists = await db.globalEvent.findFirst({ where: { url: item.url }, select: { id: true } });
     if (exists) continue;
 
-    const text = `${item.title} ${item.description ?? ""}`;
-    const countries = countriesFromTitle(item.title);
-    const tags = classifyTags(text);
+    // Countries: sourceRegion first, then any geo tags set by filter-media
+    const countrySet = new Set<string>();
+    if (item.sourceRegion) {
+      const code = REGION_TO_CODE[item.sourceRegion.toUpperCase()];
+      if (code) countrySet.add(code);
+      else if (item.sourceRegion !== "EU") countrySet.add(item.sourceRegion);
+    }
+    for (const tag of item.tags ?? []) {
+      const code = GEO_TAG_TO_CODE[tag.toLowerCase()];
+      if (code) countrySet.add(code);
+    }
+
+    // Tags: map Sanity tags to GlobalEvent tag vocabulary
+    const eventTags = [...new Set(
+      (item.tags ?? [])
+        .map((t) => SANITY_TO_EVENT_TAG[t] ?? null)
+        .filter((t): t is string => t !== null)
+    )];
 
     await db.globalEvent.create({
       data: {
@@ -97,9 +116,9 @@ export async function ingestSanityEvents(opts: {
         title: item.title.slice(0, 500),
         url: item.url,
         tone: null,
-        countries,
+        countries: [...countrySet],
         industries: ["bicycle"],
-        tags,
+        tags: eventTags.length > 0 ? eventTags : ["general"],
       },
     });
     saved++;
@@ -111,17 +130,24 @@ export async function ingestSanityEvents(opts: {
     create: { key: "gdelt_last_ingest", value: now.toISOString() },
   }).catch(() => {});
 
-  return [{ query: "Sanity mediaItem (RSS sources)", fetched: items.length, saved }];
+  return [{ query: "Sanity mediaItem (status:analyzed/collected)", fetched: items.length, saved }];
 }
 
-// Re-tag existing events that have sparse country data
+// Re-tag existing events from title keywords (fallback for legacy data)
 export async function retagEventCountries(): Promise<{ updated: number }> {
-  const events = await db.globalEvent.findMany({
-    select: { id: true, title: true, countries: true },
-  });
+  // Simple keyword patterns for retroactive country tagging
+  const patterns: [string, RegExp][] = [
+    ["TWN", /\bTaiwan(ese)?\b/i], ["CHN", /\b(China|Chinese|Beijing)\b/i],
+    ["DEU", /\b(German[y]?|Berlin)\b/i], ["USA", /\b(United States|American|U\.S\.)\b/i],
+    ["JPN", /\b(Japan(ese)?|Tokyo)\b/i], ["NLD", /\b(Netherlands|Dutch)\b/i],
+    ["GBR", /\b(British|Britain|UK |England)\b/i], ["ITA", /\b(Italian|Italy)\b/i],
+    ["VNM", /\b(Vietnam(ese)?)\b/i],
+  ];
+
+  const events = await db.globalEvent.findMany({ select: { id: true, title: true, countries: true } });
   let updated = 0;
   for (const ev of events) {
-    const extra = countriesFromTitle(ev.title);
+    const extra = patterns.filter(([, re]) => re.test(ev.title)).map(([code]) => code);
     const merged = [...new Set([...ev.countries, ...extra])];
     if (merged.length !== ev.countries.length || merged.some((c) => !ev.countries.includes(c))) {
       await db.globalEvent.update({ where: { id: ev.id }, data: { countries: merged } });
