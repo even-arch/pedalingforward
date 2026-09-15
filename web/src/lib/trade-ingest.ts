@@ -138,7 +138,14 @@ async function processBatches(opts: {
     callCountRef.v++;
 
     if (!ok) {
-      error = `HTTP ${status} @ ${batch[0]}${batch.length > 1 ? `–${batch[batch.length - 1]}` : ""}`;
+      const label = `${batch[0]}${batch.length > 1 ? `–${batch[batch.length - 1]}` : ""}`;
+      error = `HTTP ${status} @ ${label}`;
+      // 429 = daily quota exhausted — abort immediately, no point retrying.
+      // Every subsequent call will also 429 until midnight UTC reset.
+      if (status === 429) {
+        limitReachedRef.v = true;
+        return { saved, error, limitReached: true };
+      }
       continue;
     }
 

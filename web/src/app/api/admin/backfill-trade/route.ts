@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   }).catch(() => {});
 
   // Use up to 490 calls (leaving 10 buffer from the 500/day free tier).
-  // With 12-month batching this covers ~5,880 month-slots in one run.
+  // Will abort immediately on HTTP 429 if daily quota is already exhausted.
   const maxCalls = 490;
 
   waitUntil(

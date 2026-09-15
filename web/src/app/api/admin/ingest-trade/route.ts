@@ -12,56 +12,37 @@ function verifyCronOrAdmin(req: Request): boolean | Promise<boolean> {
   return checkAdminAuth(req);
 }
 
-// Vercel cron sends GET — same logic as cron branch of POST
+async function cleanZombies() {
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  await db.tradeIngestRun.updateMany({
+    where: { status: "running", startedAt: { lt: tenMinutesAgo } },
+    data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
+  }).catch(() => {});
+}
+
+// Vercel cron sends GET.
+// Use waitUntil so the handler returns immediately — prevents the 300s function
+// timeout from killing the ingest mid-run when API calls are slow.
 export async function GET(req: Request) {
   if (!(await verifyCronOrAdmin(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-  await db.tradeIngestRun.updateMany({
-    where: { status: "running", startedAt: { lt: tenMinutesAgo } },
-    data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
-  }).catch(() => { /* ignore */ });
-  try {
-    const results = await ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 });
-    const totalSaved = results.reduce((s, r) => s + r.saved, 0);
-    return Response.json({ ok: true, results, totalSaved });
-  } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
-    );
-  }
+  await cleanZombies();
+  waitUntil(
+    ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 }).catch((err) => {
+      console.error("[ingest-trade cron] failed:", err);
+    })
+  );
+  return Response.json({ ok: true, started: true });
 }
 
+// Manual trigger (admin UI button or direct POST).
+// Also uses waitUntil — same reason: long-running work should outlive the HTTP response.
 export async function POST(req: Request) {
   if (!(await verifyCronOrAdmin(req))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const isCron = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
-
-  // Clean up zombie runs (stuck "running" for over 10 minutes)
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-  await db.tradeIngestRun.updateMany({
-    where: { status: "running", startedAt: { lt: tenMinutesAgo } },
-    data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
-  }).catch(() => { /* ignore */ });
-
-  if (isCron) {
-    try {
-      const results = await ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 });
-      const totalSaved = results.reduce((s, r) => s + r.saved, 0);
-      return Response.json({ ok: true, results, totalSaved });
-    } catch (err) {
-      return Response.json(
-        { error: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
-  }
-
-  // Manual trigger: return immediately, run in background
+  await cleanZombies();
   waitUntil(
     ingestComtradeUpdates({ triggeredBy: "manual", maxCalls: 400 }).catch((err) => {
       console.error("[ingest-trade] background task failed:", err);
