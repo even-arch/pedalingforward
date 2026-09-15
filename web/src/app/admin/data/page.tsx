@@ -69,6 +69,7 @@ export default function DataPage() {
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; quotaHit: boolean; summary: string; steps: { period: string; httpStatus?: number; apiOk: boolean; rowCount: number; totalValue: number; dbOk: boolean; error?: string }[] } | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [resetEventsLoading, setResetEventsLoading] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(false);
   const [rulesError, setRulesError] = useState<string | null>(null);
 
@@ -166,6 +167,22 @@ export default function DataPage() {
       setTimeout(loadRuns, 3000);
     } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
     } finally { setBackfillLoading(false); }
+  }
+
+  async function runResetEvents() {
+    setResetEventsLoading(true);
+    try {
+      const res = await fetch("/api/admin/ingest-events", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ resetGdelt: true }),
+      });
+      const data = await res.json() as { ok?: boolean; deleted?: number; message?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      showToast(`✅ ${data.message}`, 8000);
+      setTimeout(() => { loadStats(); }, 5000);
+    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setResetEventsLoading(false); }
   }
 
   async function runEventsIngest(mode: "recent" | "backfill" | "retag" = "recent") {
@@ -401,15 +418,21 @@ export default function DataPage() {
           hasData={(dbStats?.events.total ?? 0) > 0}
         />
         <div style={{ marginBottom: 12, padding: "8px 12px", background: "#121008", border: "1px solid #3a2e10", borderRadius: 4, fontSize: 12, color: "#c8a840" }}>
-          已從 GDELT 切換至 Sanity mediaItem（RSS 來源）。如資料庫內有舊的 GDELT 事件（未來日期等），可清除後重新執行。
+          已從 GDELT 切換至 Sanity mediaItem（RSS 來源）。<br />
+          ⬇ 請按「清除 GDELT 並重新匯入」一次，把舊資料換掉。
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => runEventsIngest("recent")} disabled={eventsLoading} style={btnStyle(eventsLoading)}>
-            {eventsLoading ? "更新中…" : "更新最近 90 天"}</button>
-          <button onClick={() => runEventsIngest("backfill")} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
-            回溯補齊（2019→now）
+          <button
+            onClick={runResetEvents}
+            disabled={resetEventsLoading || eventsLoading}
+            style={{ ...btnStyle(resetEventsLoading), background: resetEventsLoading ? "#2a2824" : "#1e100a", borderColor: "#5a2010", color: resetEventsLoading ? "#9a9490" : "#e8a070" }}
+          >
+            {resetEventsLoading ? "清除並匯入中…" : "清除 GDELT 並重新匯入（2019→今）"}
           </button>
-          <button onClick={() => runEventsIngest("retag")} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
+          <button onClick={() => runEventsIngest("recent")} disabled={eventsLoading || resetEventsLoading} style={btnStyle(eventsLoading, "ghost")}>
+            {eventsLoading ? "更新中…" : "更新最近 90 天"}
+          </button>
+          <button onClick={() => runEventsIngest("retag")} disabled={eventsLoading || resetEventsLoading} style={btnStyle(eventsLoading, "ghost")}>
             修復國家標籤
           </button>
         </div>
