@@ -367,7 +367,8 @@ export default function DataPage() {
         <div style={{ marginTop: 10, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
           補充 Comtrade 沒有的 EU 市場（FR、IT、BE、AT、ES、PL）。<br />
           DE/NL 已在 Comtrade，此處不重複，避免圖表重複計算。<br />
-          Eurostat 沒有每日配額，可以一次拉取所有歷史資料（2019→今）。
+          Eurostat 沒有每日配額，可以一次拉取所有歷史資料（2019→今）。<br />
+          <span style={{ color: "#9a9490" }}>執行記錄會出現在「UN Comtrade」區塊的執行歷史裡。</span>
         </div>
       </div>
 
@@ -386,22 +387,25 @@ export default function DataPage() {
         <div style={{ marginTop: 10, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
           美國進出口由 US Census Bureau 提供（免費，無配額）。<br />
           來源國雙邊：CN、TW、VN、TH、JP、DE、IT。<br />
-          ⚠️ 部分國家代碼（CTY_CODE）待驗證，首次執行請確認結果是否合理。
+          ⚠️ 部分國家代碼（CTY_CODE）待驗證，首次執行請確認結果是否合理。<br />
+          <span style={{ color: "#9a9490" }}>執行記錄會出現在「UN Comtrade」區塊的執行歷史裡。</span>
         </div>
       </div>
 
-      {/* ── 2. GDELT Events ── */}
+      {/* ── 2. Industry Events (RSS-sourced, replaced GDELT) ── */}
       <div style={cardStyle}>
         <SectionHeader
-          title="② GDELT 全球產業事件"
-          sub="自動搜尋自行車貿易相關新聞 · 5 種查詢關鍵字 · 免費公開 API"
+          title="② 產業事件（RSS 來源）"
+          sub="從已抓取的 mediaItem 擷取 · 日期可靠 · 主題已篩選 · 取代原 GDELT"
           lastAt={dbStats?.events.lastIngestAt}
           hasData={(dbStats?.events.total ?? 0) > 0}
         />
+        <div style={{ marginBottom: 12, padding: "8px 12px", background: "#121008", border: "1px solid #3a2e10", borderRadius: 4, fontSize: 12, color: "#c8a840" }}>
+          已從 GDELT 切換至 Sanity mediaItem（RSS 來源）。如資料庫內有舊的 GDELT 事件（未來日期等），可清除後重新執行。
+        </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button onClick={() => runEventsIngest("recent")} disabled={eventsLoading} style={btnStyle(eventsLoading)}>
-            {eventsLoading ? "更新中…" : "更新最近 90 天"}
-          </button>
+            {eventsLoading ? "更新中…" : "更新最近 90 天"}</button>
           <button onClick={() => runEventsIngest("backfill")} disabled={eventsLoading} style={btnStyle(eventsLoading, "ghost")}>
             回溯補齊（2019→now）
           </button>
@@ -410,9 +414,10 @@ export default function DataPage() {
           </button>
         </div>
         <div style={{ marginTop: 14, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
-          查詢範圍：bicycle tariff · supply chain · demand · Taiwan export · ebike regulation<br />
-          資料存入 GlobalEvent 表，去重機制以 URL 為依據。<br />
-          「修復國家標籤」：從現有事件標題重新推斷提及的國家（修正舊資料只記錄發布國的問題）。
+          資料來源：Sanity mediaItem（由 RSS 抓取，filter-media 篩選過）<br />
+          去重：以 URL 為依據；日期過濾：只處理 publishedAt ≤ 今天的文章<br />
+          標籤分類：tariff / supply_chain / demand_collapse / demand_shift / general<br />
+          「修復國家標籤」：從標題關鍵字重新推斷，補充既有資料。
         </div>
       </div>
 

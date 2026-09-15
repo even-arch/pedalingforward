@@ -1,6 +1,6 @@
 import { waitUntil } from "@vercel/functions";
 import { checkAdminAuth } from "@/lib/admin";
-import { ingestGdeltEvents, retagEventCountries } from "@/lib/event-ingest";
+import { ingestSanityEvents, retagEventCountries } from "@/lib/event-ingest";
 
 export const maxDuration = 60;
 
@@ -16,10 +16,10 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, updated: result.updated, message: `已修正 ${result.updated} 筆事件的國家標籤` });
   }
 
-  const startDate = body.backfill ? new Date("2019-01-01") : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const fromDate = body.backfill ? new Date("2019-01-01") : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
   waitUntil(
-    ingestGdeltEvents(startDate, new Date()).catch((err) => {
+    ingestSanityEvents({ fromDate }).catch((err) => {
       console.error("[ingest-events] failed:", err);
     })
   );
@@ -28,6 +28,8 @@ export async function POST(req: Request) {
     ok: true,
     background: true,
     mode: body.backfill ? "backfill 2019→now" : "last 90 days",
-    message: "GDELT 事件更新已在背景啟動",
+    message: body.backfill
+      ? "從 Sanity mediaItem 補齊 2019→現在的事件資料（背景執行）"
+      : "從 Sanity mediaItem 更新最近 90 天的事件資料（背景執行）",
   });
 }
