@@ -36,9 +36,10 @@ export async function POST(req: Request) {
     data: { status: "error", finishedAt: new Date(), errorMessage: "Timed out (zombie cleanup)" },
   }).catch(() => {});
 
-  // Use up to 490 calls (leaving 10 buffer from the 500/day free tier).
+  // Cron runs 6x/day at 50 calls each = 300 calls/day.
+  // Backfill is capped at 180 so total stays under 500/day quota.
   // Will abort immediately on HTTP 429 if daily quota is already exhausted.
-  const maxCalls = 490;
+  const maxCalls = 180;
 
   waitUntil(
     ingestComtradeUpdates({

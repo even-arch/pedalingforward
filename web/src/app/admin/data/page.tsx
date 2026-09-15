@@ -242,7 +242,7 @@ export default function DataPage() {
             {tradeLoading ? "啟動中…" : "立即更新（50 calls）"}
           </button>
           <button onClick={runBackfill} disabled={backfillLoading} style={btnStyle(backfillLoading, "ghost")}>
-            {backfillLoading ? "啟動中…" : "歷史補齊（490 calls）"}
+            {backfillLoading ? "啟動中…" : "歷史補齊（180 calls）"}
           </button>
           <button onClick={runTestTrade} disabled={testLoading} style={{ ...btnStyle(testLoading, "ghost"), borderColor: testResult ? (testResult.ok ? "#3a6a40" : "#5a2820") : "#3a3630" }}>
             {testLoading ? "測試中…" : "測試完整管道（3 筆）"}
