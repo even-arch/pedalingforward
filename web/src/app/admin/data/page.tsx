@@ -63,6 +63,9 @@ export default function DataPage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   const [tradeLoading, setTradeLoading] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; quotaHit: boolean; summary: string; steps: { period: string; httpStatus?: number; apiOk: boolean; rowCount: number; totalValue: number; dbOk: boolean; error?: string }[] } | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(false);
   const [rulesError, setRulesError] = useState<string | null>(null);
@@ -101,6 +104,34 @@ export default function DataPage() {
       setTimeout(loadRuns, 2000);
     } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
     } finally { setTradeLoading(false); }
+  }
+
+  async function runTestTrade() {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/test-trade", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setTestResult(data);
+    } catch (err) {
+      showToast(`❌ 測試失敗：${err instanceof Error ? err.message : String(err)}`);
+    } finally { setTestLoading(false); }
+  }
+
+  async function runBackfill() {
+    setBackfillLoading(true);
+    try {
+      const res = await fetch("/api/admin/backfill-trade", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast("✅ 歷史補齊已在背景啟動（sections 1+2，跳過雙邊）");
+      setTimeout(loadRuns, 3000);
+    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setBackfillLoading(false); }
   }
 
   async function runEventsIngest(mode: "recent" | "backfill" | "retag" = "recent") {
@@ -203,12 +234,44 @@ export default function DataPage() {
       <div style={cardStyle}>
         <SectionHeader
           title="① UN Comtrade 貿易量"
-          sub="HS 8714 / 8712 / 871430 / 871160 · 每天 02:00 自動執行"
+          sub="HS 8714 / 8712 / 871430 / 871160 · 每天 6 次，每 3 小時（UTC 06/09/12/15/18/21），每次 50 calls"
           lastAt={runs.find((r) => r.status === "done")?.finishedAt ?? null}
         />
-        <button onClick={runTradeIngest} disabled={tradeLoading} style={btnStyle(tradeLoading)}>
-          {tradeLoading ? "啟動中…" : "立即從 Comtrade 更新"}
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button onClick={runTradeIngest} disabled={tradeLoading} style={btnStyle(tradeLoading)}>
+            {tradeLoading ? "啟動中…" : "立即更新（50 calls）"}
+          </button>
+          <button onClick={runBackfill} disabled={backfillLoading} style={btnStyle(backfillLoading, "ghost")}>
+            {backfillLoading ? "啟動中…" : "歷史補齊（490 calls）"}
+          </button>
+          <button onClick={runTestTrade} disabled={testLoading} style={{ ...btnStyle(testLoading, "ghost"), borderColor: testResult ? (testResult.ok ? "#3a6a40" : "#5a2820") : "#3a3630" }}>
+            {testLoading ? "測試中…" : "測試完整管道（3 筆）"}
+          </button>
+        </div>
+
+        {testResult && (
+          <div style={{ marginTop: 12, padding: "12px 14px", background: testResult.ok ? "#081208" : "#120808", border: `1px solid ${testResult.ok ? "#2a4a2a" : "#4a1a1a"}`, borderRadius: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: testResult.ok ? "#6aaa70" : "#f08070", marginBottom: 8 }}>{testResult.summary}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "auto auto auto auto 1fr", gap: "3px 14px", fontSize: 11, fontFamily: "monospace" }}>
+              <span style={{ color: "#6a6460", fontWeight: 600 }}>期間</span>
+              <span style={{ color: "#6a6460", fontWeight: 600 }}>HTTP</span>
+              <span style={{ color: "#6a6460", fontWeight: 600 }}>API</span>
+              <span style={{ color: "#6a6460", fontWeight: 600 }}>DB</span>
+              <span style={{ color: "#6a6460", fontWeight: 600 }}>金額 / 錯誤</span>
+              {testResult.steps.map((s) => (
+                <>
+                  <span key={`${s.period}-p`} style={{ color: "#a09890" }}>{s.period}</span>
+                  <span key={`${s.period}-h`} style={{ color: s.httpStatus === 200 ? "#6aaa70" : "#f08070" }}>{s.httpStatus ?? "—"}</span>
+                  <span key={`${s.period}-a`} style={{ color: s.apiOk ? "#6aaa70" : "#f08070" }}>{s.apiOk ? "✓" : "✗"}</span>
+                  <span key={`${s.period}-d`} style={{ color: s.dbOk ? "#6aaa70" : "#f08070" }}>{s.dbOk ? "✓" : "✗"}</span>
+                  <span key={`${s.period}-v`} style={{ color: s.error ? "#f08070" : "#9a9490" }}>
+                    {s.error ?? (s.totalValue > 0 ? `$${(s.totalValue / 1e6).toFixed(1)}M` : s.apiOk ? "0（無資料）" : "—")}
+                  </span>
+                </>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Run history */}
         <div style={{ fontSize: 11, color: "#9a9490", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 20, marginBottom: 10 }}>

@@ -12,9 +12,11 @@
       "path": "/api/cron/enrich-media",
       "schedule": "0 8 * * *"
     },
-    {
-      "path": "/api/admin/ingest-trade",
-      "schedule": "0 2 * * *"
-    }
+    { "path": "/api/admin/ingest-trade", "schedule": "0 6 * * *" },
+    { "path": "/api/admin/ingest-trade", "schedule": "0 9 * * *" },
+    { "path": "/api/admin/ingest-trade", "schedule": "0 12 * * *" },
+    { "path": "/api/admin/ingest-trade", "schedule": "0 15 * * *" },
+    { "path": "/api/admin/ingest-trade", "schedule": "0 18 * * *" },
+    { "path": "/api/admin/ingest-trade", "schedule": "0 21 * * *" }
   ]
 }

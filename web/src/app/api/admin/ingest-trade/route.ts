@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   }
   await cleanZombies();
   waitUntil(
-    ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 400 }).catch((err) => {
+    ingestComtradeUpdates({ triggeredBy: "cron", maxCalls: 50 }).catch((err) => {
       console.error("[ingest-trade cron] failed:", err);
     })
   );
