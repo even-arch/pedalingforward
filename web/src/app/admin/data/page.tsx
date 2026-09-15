@@ -64,6 +64,8 @@ export default function DataPage() {
 
   const [tradeLoading, setTradeLoading] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [eurostatLoading, setEurostatLoading] = useState(false);
+  const [censusLoading, setCensusLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; quotaHit: boolean; summary: string; steps: { period: string; httpStatus?: number; apiOk: boolean; rowCount: number; totalValue: number; dbOk: boolean; error?: string }[] } | null>(null);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -116,6 +118,38 @@ export default function DataPage() {
     } catch (err) {
       showToast(`❌ 測試失敗：${err instanceof Error ? err.message : String(err)}`);
     } finally { setTestLoading(false); }
+  }
+
+  async function runEurostat() {
+    setEurostatLoading(true);
+    try {
+      const res = await fetch("/api/admin/ingest-eurostat", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ fromPeriod: "201901" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast("✅ Eurostat 更新已在背景啟動（FR/IT/BE/AT/ES/PL）");
+      setTimeout(loadRuns, 3000);
+    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setEurostatLoading(false); }
+  }
+
+  async function runUsCensus() {
+    setCensusLoading(true);
+    try {
+      const res = await fetch("/api/admin/ingest-uscensus", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ fromPeriod: "201901" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      showToast("✅ US Census 更新已在背景啟動");
+      setTimeout(loadRuns, 3000);
+    } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setCensusLoading(false); }
   }
 
   async function runBackfill() {
@@ -316,6 +350,44 @@ export default function DataPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── 1b. Eurostat (EU additional markets) ── */}
+      <div style={cardStyle}>
+        <SectionHeader
+          title="① Eurostat 歐盟貿易數據"
+          sub="FR/IT/BE/AT/ES/PL 進口 · HS 8712/8714/871160 · 無配額限制 · 單位 EUR · 從 2019 開始"
+          lastAt={null}
+        />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={runEurostat} disabled={eurostatLoading} style={btnStyle(eurostatLoading)}>
+            {eurostatLoading ? "啟動中…" : "立即從 Eurostat 更新"}
+          </button>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
+          補充 Comtrade 沒有的 EU 市場（FR、IT、BE、AT、ES、PL）。<br />
+          DE/NL 已在 Comtrade，此處不重複，避免圖表重複計算。<br />
+          Eurostat 沒有每日配額，可以一次拉取所有歷史資料（2019→今）。
+        </div>
+      </div>
+
+      {/* ── 1c. US Census ── */}
+      <div style={cardStyle}>
+        <SectionHeader
+          title="① US Census 美國貿易數據"
+          sub="US 進出口 + 來源國雙邊 · HS 8712/8714/871160 · 無配額限制 · 單位 USD · 從 2019 開始"
+          lastAt={null}
+        />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={runUsCensus} disabled={censusLoading} style={btnStyle(censusLoading)}>
+            {censusLoading ? "啟動中…" : "立即從 US Census 更新"}
+          </button>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#6a6460", lineHeight: 1.6 }}>
+          美國進出口由 US Census Bureau 提供（免費，無配額）。<br />
+          來源國雙邊：CN、TW、VN、TH、JP、DE、IT。<br />
+          ⚠️ 部分國家代碼（CTY_CODE）待驗證，首次執行請確認結果是否合理。
+        </div>
       </div>
 
       {/* ── 2. GDELT Events ── */}
