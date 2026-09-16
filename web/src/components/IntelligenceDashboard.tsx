@@ -23,9 +23,14 @@ type CausalRule = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+// All market/reporter countries we expect across Comtrade + Eurostat + Census
 const IMPORT_COLORS: Record<string, string> = {
   DE: "#D5352A", US: "#4a9eff", NL: "#f59e0b", GB: "#9f7aea", JP: "#22c55e",
+  FR: "#ff6b35", IT: "#06b6d4", BE: "#a855f7", AT: "#ec4899",
+  ES: "#14b8a6", PL: "#84cc16",
 };
+
+// Supplier/partner countries
 const SUPPLY_COLORS: Record<string, string> = {
   TW: "#D5352A", CN: "#f59e0b", IT: "#4a9eff", VN: "#22c55e",
   PL: "#9f7aea", JP: "#ff6b35", CZ: "#06b6d4", TH: "#a855f7",
@@ -38,6 +43,10 @@ const SUPPLY_COLORS: Record<string, string> = {
 // Alpha-3 ISO codes (used in DB events) → Alpha-2 (used in Intl.DisplayNames)
 const A3_TO_A2: Record<string, string> = {
   JPN: "JP", DEU: "DE", USA: "US", NLD: "NL", GBR: "GB",
+  TWN: "TW", CHN: "CN", VNM: "VN", THA: "TH", KOR: "KR",
+  FRA: "FR", ITA: "IT", BEL: "BE", AUT: "AT", ESP: "ES",
+  POL: "PL", DNK: "DK", SWE: "SE", CAN: "CA", AUS: "AU",
+  CHE: "CH", SGP: "SG", MYS: "MY", IND: "IN", PHL: "PH",
 };
 
 function partnerColor(code: string): string {
@@ -101,7 +110,7 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
   const [activeHs, setActiveHs] = useState<HsCode>("8714");
   const [supplyMarket, setSupplyMarket] = useState<string>("DE");
   const [activeCountries, setActiveCountries] = useState<Set<string>>(
-    new Set(["DE", "US", "NL", "GB", "JP"])
+    new Set(Object.keys(IMPORT_COLORS))
   );
   const [activePartners, setActivePartners] = useState<Set<string>>(new Set<string>());
   const [activeTab, setActiveTab] = useState<"events" | "rules">("events");
@@ -120,6 +129,22 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // ── Countries that have import data for the active HS code ───────────────
+  const activeImportCountries = useMemo(() => {
+    const seen = new Set<string>();
+    for (const m of importMetrics) {
+      if (m.hsCode === activeHs || (activeHs === "871430" && m.hsCode === "8714")) {
+        seen.add(m.reporterCode);
+      }
+    }
+    // Sort: known colors first, then alphabetical
+    return [...seen].sort((a, b) => {
+      const aKnown = IMPORT_COLORS[a] ? 0 : 1;
+      const bKnown = IMPORT_COLORS[b] ? 0 : 1;
+      return aKnown - bKnown || a.localeCompare(b);
+    });
+  }, [importMetrics, activeHs]);
 
   // ── Available partners for selected market ────────────────────────────────
   const availablePartners = useMemo(() => {
@@ -199,6 +224,18 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
     if (!de.length) return null;
     return de.reduce((a, b) => (a.value > b.value ? a : b)).period;
   }, [importMetrics, activeHs]);
+
+  // Top countries in events (by frequency), for dynamic filter chips
+  const topEventCountries = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ev of events) {
+      for (const c of ev.countries) counts[c] = (counts[c] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 8)
+      .map(([code]) => code);
+  }, [events]);
 
   const filteredEvents = filterCountry
     ? events.filter((e) => e.countries.includes(filterCountry))
@@ -314,14 +351,14 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
 
           {/* Supply chain market selector */}
           {chartMode === "supply" && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
               <span className="lab" style={{ color: "#6E6760" }}>{t("marketLabel")}</span>
-              {Object.keys(IMPORT_COLORS).map((code) => (
+              {activeImportCountries.map((code) => (
                 <Chip
                   key={code}
                   label={countryName(code)}
                   active={supplyMarket === code}
-                  color={IMPORT_COLORS[code]}
+                  color={IMPORT_COLORS[code] ?? "#6E6760"}
                   onClick={() => setSupplyMarket(code)}
                 />
               ))}
@@ -344,9 +381,9 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {chartMode === "import"
-                ? Object.entries(IMPORT_COLORS).map(([code, color]) => (
+                ? activeImportCountries.map((code) => (
                     <Chip key={code} label={countryName(code)} active={activeCountries.has(code)}
-                      color={color} onClick={() => toggleCountry(code)} />
+                      color={IMPORT_COLORS[code] ?? "#6E6760"} onClick={() => toggleCountry(code)} />
                   ))
                 : availablePartners.map((code) => (
                     <Chip key={code} label={countryName(code) ?? code} active={activePartners.has(code)}
@@ -407,9 +444,10 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
                     />
                   )}
                   {chartMode === "import" &&
-                    Object.entries(IMPORT_COLORS).map(([code, color]) =>
+                    activeImportCountries.map((code) =>
                       activeCountries.has(code) ? (
-                        <Line key={code} type="monotone" dataKey={code} stroke={color}
+                        <Line key={code} type="monotone" dataKey={code}
+                          stroke={IMPORT_COLORS[code] ?? partnerColor(code)}
                           dot={false} strokeWidth={2} connectNulls />
                       ) : null
                     )}
@@ -431,6 +469,10 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
             {chartMode === "import"
               ? t("unitImport")
               : t("unitSupply", { market: supplyMarketName })}
+            {" · "}
+            <span style={{ opacity: 0.7 }}>
+              DE/US/NL/GB/JP: USD (UN Comtrade) · FR/IT/BE/AT/ES/PL: EUR (Eurostat)
+            </span>
           </p>
         </div>
       </section>
@@ -472,7 +514,7 @@ export default function IntelligenceDashboard({ locale }: { locale: string }) {
             <>
               <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
                 <span className="lab" style={{ color: "#6E6760" }}>{t("filterLabel")}</span>
-                {([null, "JPN", "DEU", "USA", "NLD", "GBR"] as (string | null)[]).map((c) => (
+                {([null, ...topEventCountries] as (string | null)[]).map((c) => (
                   <button
                     key={c ?? "all"}
                     onClick={() => setFilterCountry(filterCountry === c ? null : c)}
