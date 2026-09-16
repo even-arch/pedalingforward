@@ -60,11 +60,11 @@ export async function ingestSanityEvents(opts: {
 
   let items: MediaItem[] = [];
   try {
-    // Only pull items that filter-media has processed (status != 'raw' means tags are set).
+    // Include raw items too — sourceRegion is always set, tags may be absent on raw.
     // Date filter: publishedAt must exist AND be in the past (no future articles).
     items = await client.fetch<MediaItem[]>(
       `*[_type == "mediaItem"
-          && status in ["analyzed", "collected"]
+          && status != "dismissed"
           && defined(publishedAt)
           && dateTime(publishedAt) >= dateTime($from)
           && dateTime(publishedAt) <= dateTime($now)

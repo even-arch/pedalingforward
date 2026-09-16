@@ -200,7 +200,7 @@ export default function DataPage() {
         showToast(`✅ ${data.message}`);
         setTimeout(loadStats, 1000);
       } else {
-        showToast(mode === "backfill" ? "✅ GDELT 回溯更新已啟動（2019→now）" : "✅ GDELT 最近 90 天事件已啟動");
+        showToast(mode === "backfill" ? "✅ RSS 事件回溯匯入已啟動（2019→now）" : "✅ RSS 事件更新已啟動（最近 90 天）");
         setTimeout(loadStats, 8000);
       }
     } catch (err) { showToast(`❌ ${err instanceof Error ? err.message : String(err)}`, 8000);
@@ -290,7 +290,7 @@ export default function DataPage() {
         />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <button onClick={runTradeIngest} disabled={tradeLoading} style={btnStyle(tradeLoading)}>
-            {tradeLoading ? "啟動中…" : "立即更新（50 calls）"}
+            {tradeLoading ? "啟動中…" : "立即更新（最多 400 calls）"}
           </button>
           <button onClick={runBackfill} disabled={backfillLoading} style={btnStyle(backfillLoading, "ghost")}>
             {backfillLoading ? "啟動中…" : "歷史補齊（180 calls）"}
@@ -340,7 +340,7 @@ export default function DataPage() {
                 >
                   <span style={{ fontSize: 10, color: statusColor(run.status), fontWeight: 700, animation: run.status === "running" ? "pulse 1.2s ease-in-out infinite" : undefined }}>{statusLabel(run.status)}</span>
                   <span style={{ fontSize: 11, color: "#a09890", fontFamily: "monospace" }}>{fmt(run.startedAt)}</span>
-                  <span style={{ fontSize: 11, color: "#9a9490" }}>{run.triggeredBy}</span>
+                  <span style={{ fontSize: 11, color: run.triggeredBy.startsWith("eurostat") ? "#4a9eff" : run.triggeredBy.startsWith("uscensus") ? "#f59e0b" : "#9a9490" }}>{run.triggeredBy}</span>
                   {run.callsUsed > 0 ? <span style={{ fontSize: 10, color: "#9a9490", fontFamily: "monospace" }}>{run.callsUsed} calls</span> : <span />}
                   <span style={{ fontSize: 11, color: run.totalSaved > 0 ? "#6aaa70" : "#9a9490", textAlign: "right" }}>{run.totalSaved > 0 ? `+${run.totalSaved}` : "—"}</span>
                   {run.totalErrors > 0 ? <span style={{ fontSize: 10, color: "#f08070" }}>{run.totalErrors} err</span> : <span />}
@@ -374,7 +374,8 @@ export default function DataPage() {
         <SectionHeader
           title="① Eurostat 歐盟貿易數據"
           sub="FR/IT/BE/AT/ES/PL 進口 · HS 8712/8714/871160 · 無配額限制 · 單位 EUR · 從 2019 開始"
-          lastAt={null}
+          lastAt={runs.find((r) => r.triggeredBy.startsWith("eurostat") && r.status === "done")?.finishedAt ?? null}
+          hasData={runs.some((r) => r.triggeredBy.startsWith("eurostat"))}
         />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button onClick={runEurostat} disabled={eurostatLoading} style={btnStyle(eurostatLoading)}>
@@ -394,7 +395,8 @@ export default function DataPage() {
         <SectionHeader
           title="① US Census 美國貿易數據"
           sub="US 進出口 + 來源國雙邊 · HS 8712/8714/871160 · 無配額限制 · 單位 USD · 從 2019 開始"
-          lastAt={null}
+          lastAt={runs.find((r) => r.triggeredBy.startsWith("uscensus") && r.status === "done")?.finishedAt ?? null}
+          hasData={runs.some((r) => r.triggeredBy.startsWith("uscensus"))}
         />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button onClick={runUsCensus} disabled={censusLoading} style={btnStyle(censusLoading)}>

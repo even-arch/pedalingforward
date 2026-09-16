@@ -166,7 +166,7 @@ export async function ingestEurostatUpdates(opts: EurostatIngestOptions = {}): P
     : HS_CODES;
 
   const run = await db.tradeIngestRun.create({
-    data: { triggeredBy: opts.triggeredBy ?? "manual", status: "running" },
+    data: { triggeredBy: `eurostat-${opts.triggeredBy ?? "manual"}`, status: "running" },
   });
 
   const results: EurostatIngestResult[] = [];

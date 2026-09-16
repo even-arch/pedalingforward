@@ -112,7 +112,7 @@ export async function ingestUsCensusUpdates(opts: UsCensusIngestOptions = {}): P
     : HS_CODES;
 
   const run = await db.tradeIngestRun.create({
-    data: { triggeredBy: opts.triggeredBy ?? "manual", status: "running" },
+    data: { triggeredBy: `uscensus-${opts.triggeredBy ?? "manual"}`, status: "running" },
   });
 
   const maxCalls = opts.maxCalls ?? 200;
