@@ -10,7 +10,14 @@ type IngestRun = {
   results: IngestResult[] | null;
 };
 type DbStats = {
-  trade:  { total: number; byFlow: { flow: string; _count: { id: number } }[]; latestPeriod?: string; earliestPeriod?: string };
+  trade: {
+    total: number;
+    nonZero: number;
+    byFlow: { flow: string; _count: { id: number } }[];
+    bySource: { source: string; _count: { id: number } }[];
+    latestPeriod?: string;
+    earliestPeriod?: string;
+  };
   events: { total: number; latestDate?: string; lastIngestAt?: string | null };
   rules:  { total: number; verified: number; lastGeneratedAt?: string | null };
 };
@@ -260,10 +267,12 @@ export default function DataPage() {
         ) : (
           <div style={{ display: "flex", gap: 36, flexWrap: "wrap" }}>
             <StatCard
-              label="貿易量記錄"
+              label="貿易量記錄（含零值）"
               value={dbStats.trade.total}
-              sub={dbStats.trade.earliestPeriod && dbStats.trade.latestPeriod ? `${dbStats.trade.earliestPeriod} → ${dbStats.trade.latestPeriod}` : undefined}
-              color={dbStats.trade.total > 0 ? "#6aaa70" : "#f08070"}
+              sub={dbStats.trade.earliestPeriod && dbStats.trade.latestPeriod
+                ? `${dbStats.trade.earliestPeriod} → ${dbStats.trade.latestPeriod} · 有值 ${dbStats.trade.nonZero}`
+                : "尚無資料"}
+              color={dbStats.trade.nonZero > 0 ? "#6aaa70" : dbStats.trade.total > 0 ? "#e8c84a" : "#f08070"}
             />
             <StatCard
               label="產業事件"
@@ -293,12 +302,34 @@ export default function DataPage() {
             {tradeLoading ? "啟動中…" : "立即更新（最多 400 calls）"}
           </button>
           <button onClick={runBackfill} disabled={backfillLoading} style={btnStyle(backfillLoading, "ghost")}>
-            {backfillLoading ? "啟動中…" : "歷史補齊（180 calls）"}
+            {backfillLoading ? "啟動中…" : "歷史補齊（180 calls，每天可跑一次）"}
           </button>
           <button onClick={runTestTrade} disabled={testLoading} style={{ ...btnStyle(testLoading, "ghost"), borderColor: testResult ? (testResult.ok ? "#3a6a40" : "#5a2820") : "#3a3630" }}>
             {testLoading ? "測試中…" : "測試完整管道（3 筆）"}
           </button>
         </div>
+
+        {/* Backfill progress note */}
+        {dbStats && (() => {
+          const earliest = dbStats.trade.earliestPeriod;
+          const latest = dbStats.trade.latestPeriod;
+          const nonZero = dbStats.trade.nonZero;
+          // Estimate: 20 tasks × 90 months = 1800 calls needed; 180 per backfill run
+          const runsNeeded = nonZero === 0 ? 10 : null;
+          if (nonZero === 0 || (earliest && earliest > "2020-01")) {
+            return (
+              <div style={{ marginTop: 10, padding: "8px 12px", background: "#121008", border: "1px solid #3a2e10", borderRadius: 4, fontSize: 12, color: "#c8a840", lineHeight: 1.6 }}>
+                ⚠️ 歷史資料補齊需要多次執行：2019→2026 共約 1,800 次 API call，每次 backfill 只做 180 次。<br />
+                {nonZero === 0
+                  ? `目前 DB 尚無有效貿易資料。每天配額 500 次（cron 佔 300），backfill 每天可跑一次，約需 ${runsNeeded} 天才能填完 2019→2026。`
+                  : `目前最早期數：${earliest}，最新：${latest}，有值記錄 ${nonZero} 筆。繼續每天跑 backfill 直到 earliest ≤ 2019-01。`}
+                <br />
+                先按「測試完整管道（3 筆）」確認 API 正常，再跑 backfill。
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {testResult && (
           <div style={{ marginTop: 12, padding: "12px 14px", background: testResult.ok ? "#081208" : "#120808", border: `1px solid ${testResult.ok ? "#2a4a2a" : "#4a1a1a"}`, borderRadius: 4 }}>

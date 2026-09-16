@@ -8,6 +8,8 @@ export async function GET(req: Request) {
 
   const [
     tradeTotal, tradeByFlow, tradeLatest, tradeEarliest,
+    tradeBySource,
+    tradeNonZero,
     eventTotal, eventLatest,
     ruleTotal, ruleVerified,
     gdeltMeta, rulesMeta,
@@ -16,6 +18,10 @@ export async function GET(req: Request) {
     db.tradeMetric.groupBy({ by: ["flow"], _count: { id: true } }),
     db.tradeMetric.findFirst({ orderBy: { period: "desc" }, select: { period: true } }),
     db.tradeMetric.findFirst({ orderBy: { period: "asc" }, select: { period: true } }),
+    // Count by source so admin can see comtrade vs eurostat vs uscensus breakdown
+    db.tradeMetric.groupBy({ by: ["source"], _count: { id: true } }),
+    // Non-zero records only — zero-value records are placeholders, not real data
+    db.tradeMetric.count({ where: { value: { gt: 0 } } }),
     db.globalEvent.count(),
     db.globalEvent.findFirst({ orderBy: { eventDate: "desc" }, select: { eventDate: true } }),
     db.causalRule.count(),
@@ -27,7 +33,9 @@ export async function GET(req: Request) {
   return Response.json({
     trade: {
       total: tradeTotal,
+      nonZero: tradeNonZero,
       byFlow: tradeByFlow,
+      bySource: tradeBySource,
       latestPeriod: tradeLatest?.period,
       earliestPeriod: tradeEarliest?.period,
     },
